@@ -1,66 +1,26 @@
----
-title: "SM for Brock et al. Progress in Physical Geography"
-author: "James M.R. Brock, Finnbar Lee, John Wainwright, George L.W. Perry"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
-output:
-  html_document:
-    df_print: paged
-  pdf_document: default
-header-includes:
- \usepackage{float}
- \floatplacement{figure}{H}
-bibliography: MVA_Geography.bib
-csl: global-ecology-and-biogeography.csl
-editor_options:
-  markdown:
-    wrap: 72
-nocite: |
- @wangMvabundPackageModelbased2012
----
-
-
-```{r setup, include = FALSE} 
 knitr::opts_chunk$set(echo = TRUE)
-```
 
-Commented R code for analyses described in Brock et al. PiPG Progress reports
-
-This document shows how to perform the analyses described in Brock et al. largely using the data from Lee et al. [-@leePreySelectivityOntogenetic2018] and Perry et al. [-@perryVegetationPatternsTrajectories2010]. It is *not* a detailed description of the methods themselves (for that see references in the main document) but rather an example of how to conduct the sorts of analyses mentioned in the article.
-
-First we'll load some packages necessary for the wrangling, visualisation and analyses.
-```{r loadLibraries, message=FALSE}
 # load pacman package + install if missing - used to load/install multiple packages at once
 if (!require("pacman")) install.packages("pacman")
 
 # load packages + install any that are missing
 pacman::p_load(tidyverse, broom, knitr, janitor, ggfortify, patchwork,
                mdthemes, vegan, analogue, ggvegan, mvabund, devtools)
-```
 
-```{r loadLibraries_2, eval = FALSE}
-# install packages from GitHub (not available on CRAN)
-devtools::install_github("phytomosaic/ecole")
-devtools::install_github("phytomosaic/fitNMDS")
-devtools::install_github("jfq3/ggordiplots")
-devtools::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
-devtools::install_github("gavinsimpson/ggvegan")
+## # install packages from GitHub (not available on CRAN)
+## devtools::install_github("phytomosaic/ecole")
+## devtools::install_github("phytomosaic/fitNMDS")
+## devtools::install_github("jfq3/ggordiplots")
+## devtools::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+## devtools::install_github("gavinsimpson/ggvegan")
+## 
 
-```
-
-```{r loadFunctions}
 # load newly installed packages from GitHub
 pacman::p_load(ecole, fitNMDS, ggordiplots, pairwiseAdonis, ggvegan) 
 
 # load custom functions for plotting ordinations from vegan
 source("auxScripts/helperPlots.r")
-```
 
-
-# Load data
-Load data we'll explore and do some re-organising. We need to be a bit cautious because although base `R` and many multivariate analysis packages (e.g., `vegan`) use row names, the `tidyverse` (tibbles) does _not_ as they don't confirm to tidy data. Need to be aware of this when moving between the two.
-
-First, load freshwater invertebrate, physiochemical and location data from Auckland, New Zealand from Lee et al. [-@leePreySelectivityOntogenetic2018]
-```{r loadLeeData}
 # Load data and tidy up
 # invert abundances
 inverts <- read.csv(file = "data/inverts_to_species.csv", row.names = 1)
@@ -93,11 +53,7 @@ chem_sub_hyp <- chem_sub %>%
 # Binary vectors for riparian cover and native cover
 rip_cover <- chem_sub$proportion_riparian_cover0_5 > 0.2
 native_cover <- chem_sub$native > 0.2
-```
 
-Second, load vegetation data from Aotea/Great Barrier Island (New Zealand) from Perry et al. [-@perryVegetationPatternsTrajectories2010].
-
-```{r loadAoteaData, warning = FALSE}
 # Load the Aotea veg data
 # vegan uses row names, but the tidyverse doesn"t!
 aotea <- read.csv(file = "Data/aotea_allyears_tidy.csv", row.names = 1)
@@ -109,12 +65,7 @@ dfr <- data.frame(site = rownames(aotea_pa))
 aotea_site <- separate(dfr, site, into = "code", "_") # ignore the warning
 aotea_site$code <- str_sub(aotea_site$code, end = 2)
 rm(dfr)
-```
 
-
-# Visualisation of the multivariate data
-Now, some basic visualisation to highlight the nature of multivariate (ecological) data using the Lee et al. data. This is **Figure X** in the main document.
-```{r visualiseMVA}
 # First, lengthen the data to make it easier for ggplot
 aotea.long <- aotea %>%
   rownames_to_column(var = "site") %>%
@@ -158,18 +109,12 @@ dot.wang.iv.gg <- ggplot(data = warton.iv) +
           axis.ticks.x=element_blank()) +
   md_theme_minimal()   # mdthemes lets us use markdown in graph notations
 
-# combine plots
+# Bind them together with patchdown
 fig1 <- sites.hist.iv.gg + heat.iv.gg + dot.wang.iv.gg +
 plot_annotation(tag_levels = "a")
-```
 
-```{r plotVis, echo = FALSE, fig.dim = c(8, 4), fig.align = "center", fig.cap = "Histogram of number of sites each taxa occurs at (a). Heat map of abundance for species x site, grey = not present, white = low abundances and red = high abundnces (b). Dotplot of taxa abundances, replicating that in Wang et al. 2012 Methods Ecol Evol (c). All figures use the Lee et al. 2018 Invertebrate data"}
 fig1
-```
 
-Next, look at the mean-variance relationship in the two datasets - this is of concern in tests of location and dispersion, and adequately addressing it is central to model-based multivariate analysis (@wartonModelbasedThinkingCommunity2015).
-
-```{r meanVarReln}
 # freshwater invert data
 # calculate mean and variance
 inverts_mv <- data.frame(mean = colMeans(inverts), 
@@ -197,23 +142,9 @@ veg.mean.gg <- ggplot(data = aotea_mv) +
 # combine plots
 fig2 <- invert.mean.gg + veg.mean.gg +
   plot_annotation(tag_levels = "a")
-```
 
-```{r plotVis2, echo = FALSE, fig.dim = c(8, 4), fig.align = "center", fig.cap = "Mean-variance relationships for Lee et al. 2018 invertebrate (a) and Perry et al 2010 (b) vegetaion data."}
 fig2
-```
 
-
-# Unconstrained ordination
-
-## Methods of multidimensional scaling
-
-### Lee et al. invertebrate data
-Having visualised the data, we can look at some ways to explore it using multidimensional scaling as a means of dimensional reduction -- these methods are available in the `vegan` package, which is extremely well documented and support by a series of [vignettes](https://cran.r-project.org/web/packages/vegan/). Here we are using the methods in an exploratory way, to generate hypotheses.
-
-First, classical/metric MDS of the Lee et al. [-@leePreySelectivityOntogenetic2018] invertebrate data. In vegan we can do this either unweighted or weighted; below we do both with row sums as proportions of matrix sum as weights. Also, because we use a non-Euclidean distance metric there is a risk of negative eigenvalues, so we use the `add` argument. Using `eig = TRUE` returns the eigenvalues for us. Here, the weighted solution is strongly influence by a few sites with much higher abundance than others (e.g., F16 and F01).
-
-```{r pcoaInvert}
 # Non-weighted using the Bray_Curtis
 pcoa_iv <- wcmdscale(d = vegdist(inverts), eig = TRUE, add = "lingoes")
 
@@ -222,9 +153,7 @@ wgt_iv <- iv <- rowSums(inverts)/sum(inverts)
 
  # Weighted
 pcoa_wgt_iv <- wcmdscale(d = vegdist(inverts), w = wgt_iv, eig = TRUE, add = "lingoes")
-```
 
-```{r pcoaVisualise}
 # Get the coordinates (using vegan::scores)
 pcoa_scores <- data.frame(scores(pcoa_iv)[,1:2],
                           scores(pcoa_wgt_iv)[,1:2],
@@ -283,14 +212,9 @@ pcoa.eig.wgt.gg <- ggplot(pcoa_wgt_eig) +
 fig3 <- pcoa.gg + pcoa.eig.gg + pcoa.wgt.gg + pcoa.eig.wgt.gg + 
     plot_layout(widths = c(1, 1)) + plot_annotation(tag_levels = 'a') & theme(legend.position = 'bottom')
 
-```
 
-```{r plotVis3, echo = FALSE, fig.align = "center", fig.dim = c(10, 8), fig.cap = "Unweighted metric MDS (a) and associated eigenvalues (b), weighted metric MDS (c) and associated eigenvalues (d) for Lee et al. 2018 Invertebrate data"}
 fig3
-```
 
-Second, look at non-metric multidimensional scaling.  Remember that although nMDS and PCOA are both called 'multidimensional scaling' they are quite different in that nMDS works on ranks and is based on a stochastic (non-analytic) algorithm. We'll start with the Lee et al. invertebrate data showing the nMDS and then fitting environmental vectors on it (commands `vegan::metaMDS` and `vegan::envfit`, respectively).
-```{r nmdsInvert, echo = T, results = 'hide'}
 # nMDS of the Lee et al. invertebrate data
 
 # Bray-curtis distance matrix
@@ -341,19 +265,9 @@ fig4 <- (iv.mds.gg + iv.bubble.gg + iv.fit.gg + iv.fitpca.gg) +
   plot_annotation(tag_levels = "a") + 
   plot_layout(ncol = 2, guides ="collect") & 
   theme(legend.position = "bottom")
-```
 
-Visually, there are no strong and obvious clusters in ordination space suggesting the sites lie along an environmental gradient (rather than discrete environmental conditions). PCA shows that there is a dominant axis relating to land-use (proportion forest, etc.) and a second axis relating to stream conditions (e.g. width and flow velocity) and water quality. The vectors suggest that Dissolved organic nitrogen (DIN) and water temperature are the most important environmental vectors (p < 0.05), and  the PCA scores components 2, 5 and 6 are important (but only DIN p < 0.05).
-
-## plots need tidying
-```{r plotnMDSLee, echo = FALSE, fig.cap = "nMDS of invertebrate data (a), with point size scale by Physa (genus snails) abundance (b), and physiocemical data fit as environmental vectors (c), and with environmetal vectors fit using PCA axis of all physiochemical variables (d)", fig.dim = c(8, 8)}
 fig4
-```
 
-One issue with fitting vectors is that they may not depict non-linear relationships adequately (although they have the benefit of allowing multiple variables to be seen). An option is to fit a surface (e.g. via a spline or general additive model [GAM]) instead.  Here, we fit DIN and the first component of the PCA to the invertebrate nMDS. As with any surface fitting exercise it is important to evaluate the effects of different parametrisations (e.g., the knots used in the GAM) via the underlying diagnostics.
-
-## plots need tidying
-```{r invertSurface, fig.cap = "Dissolved organic nitrogen fit as a surface to the nMDS with different paramertisations of *k* (a, c). PCA component 1 fit as a surface to the nMDS with different paramertisations of *k* (b, d)."}
 par(mfrow = c(2,2))
 
 din_surf_k5 <- ordisurf(x = invert_mds, y = chem_sub$din,
@@ -368,12 +282,7 @@ din_surf_k10 <- ordisurf(x = invert_mds, y = chem_sub$din,
 
 pca_surf_k10 <- ordisurf(x = invert_mds, y = chem_pca_scores[,1],
                          knots = 10, main = "PCA comp 1, k = 10")
-```
 
-### Perry et al. vegetation data
-Now we'll do an nMDS of the Aotea vegetation data. Unlike the Lee et al. invertebrate data, this information is presence-absence only, and covers many more sites and species (`r nrow(aotea)` x `r ncol(aotea)`). Although it may seem obvious that presence-absence is less informative than abundance data, this is context-dependent. Wilson [-@bastowwilsonSpeciesPresenceAbsence2012] suggests that abundance data are more informative that presence-absence data (in ordinations) only where small extents are covered, the vegetation is reasonably homogeneous, and the abundance information is high-quality. This example may have some issues with finding a convergent solution - check the `vegan` help for details.
-
-```{r mdsAotea, echo = FALSE, message = FALSE}
 # nMDS of the Aotea veg data (presence-absence)
 aotea_dist <- vegdist(aotea_pa)
 
@@ -404,20 +313,13 @@ aotea.bubble <- plot.mds.bubble.gg(aotea_mds, weights = aotea$Beitaw)
 # gather plots
 fig5 <- (aotea.shep.gg + aotea.mds.gg) + 
   plot_annotation(tag_levels = "a")
-```
 
-```{r plotnMDSAotea1, echo = FALSE, fig.dim = c(8, 6), fig.cap = "Shepperd plot (a), nMDS ordination (b) of vegetation data. nMDS ordination of of vegetation data with point size scaled by the abundance of the late successional tree, *Beilschmiedia tawa* (c)"}
+
+
 fig5
-```
 
-```{r plotnMDSAotea2, echo = FALSE, fig.cap = "nMDS ordination of of vegetation data with point size scaled by the abundance of the late successional tree, *Beilschmiedia tawa*"}
 aotea.bubble
-```
 
-
-## Principle response curves
-Principle response curves seek to fit a smooth curve though some high dimensional space. They are probably most appropriate where there is a single dominant gradient (in time or space) [@deathPrincipalCurvesNew1999; @simpsonStatisticalLearningPalaeolimnology2012]. Here, we will apply it to the Lee et al. data, which is underpinned by a strong gradient in land-use, using the implementation in `analogue::prcurve`. The initial configuration can be quite important (see De'ath [-@deathPrincipalCurvesNew1999]), so here we use the first axis of a correspondence analysis, with a GAM, and allow the complexity of the smoother to vary across species. We can show the fit of the curve at each iteration by setting `plotit = TRUE`.
-```{r prCurves, fig.cap = "Principal response curve for the freshwater invertebrate dataset."}
 
 # Fit PRC here with the complexity fixed across all species (vary)
 # The method here specifies the starting conditions (first axis of a method)
@@ -429,11 +331,7 @@ inverts_pc
 
 plot.prcurve.gg(inverts_pc) +
   ggtitle("Final solution for principle curve")
-```
 
-We can see that the curve captures 43% of the variance but (say compared to a PCA) at the cost of a much more complex model. It is also possible to look at individual taxa response along the gradient identified in the principle curve. The command in analogue is `sppResponse`. Here, we have plotted the subset of taxa occurring at at least 17 (60%) of survey sites. Visually, we can see some taxa sorting along the gradient identified in the PC; some taxa respond curvilinearly (e.g., Chironomidae) but others show a threshold-type effect (e.g., Amphipods).
-
-```{r speciesPCResponses, fig.cap = "Principal response curve taxa rersponses for the freshwater invertebrate dataset."}
 # taxa responses
 invert_responses <- sppResponse(inverts_pc)
 
@@ -442,15 +340,7 @@ focal_spp <- chooseTaxa(inverts_l10, n.occ = 17, value = FALSE)
 
 # plot
 plot.sppResponse.gg(invert_responses, focal_spp = focal_spp)
-```
 
-## tsne and UMAP
-
-TO DO
-
-# Constrained ordination
-Now, we can move onto some methods of constrained ordination. First, a look at the 'tikus' dataset (measures of coral reef communities over time) to compare an unconstrained and a constrained (by time) ordination (data available in the `mvabund` package in R). Here, a distance-based redundancy analysis (`vegan::dbrda`) with an nMDS is presented. We will log-transform the data. This example is presented in detail in ver Braak and Šmilauer (-@terbraakTopicsConstrainedUnconstrained2015). Note that for the `metaMDS` we have increased the number of runs (_try_) and iterations (_maxit_) to help ensure convergence on an optimal solution.
-```{r tikusExample, echo = T, results = 'hide'}
 
 # load data
 data(tikus, package = 'mvabund')
@@ -488,65 +378,35 @@ fig6 <- tik.mds.gg + tik.rd.gg +
     plot_annotation(tag_levels = "a") +
     plot_layout(guides = "collect", widths = c(1, 1)) &
     theme(legend.position = "bottom")
-```
 
-```{r plotTikusExample, echo = FALSE, fig.cap = "", fig.dim = c(8, 8), fig.cap = "Uncontrained ordination of coral reef communities (a), and constrained (by time) ordination (b)"}
 fig6
-```
 
-## RDA and CCA
-A basic form of constrained analysis is redundancy analysis (RDA).  We can do this using the command `vegan::rda`; note that if we do an RDA without any environmental variables we will have a PCA.  Usually we will have two matrices; one describing the community at each site and the other the environmental variables (which constrain the ordination).  The RDA in vegan allows use of a third matrix that can be partialled out (the 'conditioning matrix'). We will do an RDA on a Hellinger transformed version of the Lee et al. data (transformed following the advice of Legendre & Gallagher [-@legendreEcologicallyMeaningfulTransformations2001]).
-
-```{r rdaInvert}
-# RDA on subset of env data
-invert_rda <- rda(inverts_hel ~ ., data = chem_sub_hyp) 
-
-# adjusted r2 (via the vegan package)
-invert_rda_r2 <- round(RsquareAdj(invert_rda)$adj.r.squared, 3) 
+invert_rda <- rda(inverts_hel ~ ., data = chem_sub_hyp) # RDA on subset of env data
+invert_rda_r2 <- round(RsquareAdj(invert_rda)$adj.r.squared, 3) # adjusted r2 (via the vegan package)
 
 # Plot using ggvegan (as an example)  
 rda.iv.gg <- autoplot(invert_rda, layers = c("biplot", "sites"), geom = "text") +
   theme_minimal() + 
   theme(legend.position = "none")
-```
 
-```{r plotRDAInvert, echo = FALSE, fig.cap = "Constrained redundancy analysis (RDA) for freshwater invertebrate and physiochemical data.", fig.dim = c(8,4)}
 rda.iv.gg
-```
 
-Now a canonical correspondence analysis (CCA) using the `vegan::cca` command. We'll build two models on log_10_ transformed abundance data, one saturated and one using a subset of environmental predictors.
-
-```{r ccaInvert}
 invert_cca_all <- cca(inverts_l10, chem_sub)
 invert_cca_red <- cca(inverts_l10, chem_sub_hyp)
-```
 
-Now we can plot the saturated and reduced model and compare them.
-
-### plots need tidying
-```{r plot-invertCCA, fig.cap = "canonical correspondence analysis of freshwater invertebrate and environemntal data using all (a) and a subset (b) of environemtnal predictors.", fig.dim = c(8, 6)}
 
 # Plot them - autoplot here is from ggvegan
-invert.cca.all.gg <- autoplot(invert_cca_all, layers = c("biplot","sites"),
-                              geom = "text") + 
+invert.cca.all.gg <- autoplot(invert_cca_all, layers = c("biplot","sites"), geom = "text") + 
   theme_bw() + 
   theme(legend.position = "none")
 
-invert.cca.red.gg <- autoplot(invert_cca_red, layers = c("biplot","sites"),
-                              geom = "text") + 
+invert.cca.red.gg <- autoplot(invert_cca_red, layers = c("biplot","sites"), geom = "text") + 
   theme_bw() + 
-  theme_bw() +
-  theme(legend.position = "none")
+  theme_bw() + theme(legend.position = "none")
 
 (invert.cca.all.gg + invert.cca.red.gg) + 
   plot_annotation(tag_levels = "a")
-```
 
-## Distance-based RDA
-
-dbRDA is similar to RDA but is designed to support a broader range of dissimilarity metrics (including some of those frequently used by community ecologists).  Note that in vegan there are two versions, `capscale` (following Legendre and Anderson [-@legendreDistancebasedRedundancyAnalysis1999]) and `dbrda` (following McArdle & Anderson [-@mcardleFittingMultivariateModels2001]).  These differ in some implementation details (read the help!).  Here we will use `capscale` to look at the Lee et al. invertebrate data.
-
-```{r dbRDA, fig.cap = "dbRDA of freshwater invertebrate and enviromental data", fig.dim = c(6,6)}
 
 invert_dbrda <- capscale(inverts ~ ., chem_sub_hyp, dist="bray")
 dbrda.invert.gg <- autoplot(invert_dbrda, layers = c('sites', 'biplot')) +
@@ -554,14 +414,7 @@ dbrda.invert.gg <- autoplot(invert_dbrda, layers = c('sites', 'biplot')) +
   theme(legend.position = 'none')
 
 dbrda.invert.gg
-```
 
-
-## Variable selection and axis selection
-
-For constrained ordinations it is possible to use various selection methods to assess the importance of individual variables and the significance of the axes.  This can be done using forward, backward or stepwise model selection based on R^2^ or AIC; each of these come with _caveats_.,  For example, the vegan help for `ordistep` pithily notes, "... constrained ordination methods do not have AIC, and therefore the step may not be trusted.".  It is important to understand the various options available when conducting these (and any) analysis.
-
-```{r dbrdaVarSel}
 full_mod_dbrda <- capscale(inverts_hel ~ ., data = chem_sub_hyp, dist = "bray")  # full model
 null_mod_dbrda <- capscale(inverts_hel ~ 1, data = chem_sub_hyp, dist = "bray")  # intercept-only model
 
@@ -578,23 +431,16 @@ sel_mod_dbrda_r2 <- round(RsquareAdj(sel_mod_dbrda)$adj.r.squared, 3)
 
 
 dbrda.full.gg <- autoplot(full_mod_dbrda, layers = c("sites", "biplot"), geom = "text") +
-  theme_minimal() + 
-  theme(legend.position = 'none')
+  ggtitle(paste("Full model. Adjusted R2 = ", full_mod_dbrda_r2)) +
+  theme_minimal()
 
 dbrda.sel.gg <- autoplot(sel_mod_dbrda, layers = c("sites", "biplot"), geom = "text") +
-  theme_minimal() + 
-  theme(legend.position = 'none')
-```
+  ggtitle(paste("Reduced model. Adjusted R2 = ", sel_mod_dbrda_r2)) +
+  theme_minimal()
 
-```{r plotFullSel, fig.cap = paste("dbRDA including all hypothesised predictors, Adjusted R2 = ", full_mod_dbrda_r2, " (a)", "and a subset based on model selection, Adjusted R2 = ", sel_mod_dbrda_r2, " (b)", sep = "")}
 dbrda.full.gg + dbrda.sel.gg + 
   plot_layout(guides = "collect")
-```
 
-
-In a similar vein, we can look at the significance of each variable or axis (again, using `vegan::anova.cca`).  This command uses a permutation-based approach (see Legendre et al. [-@legendreTestingSignificanceCanonical2011]).   As an example, we will use RDA on the Hellinger-transformed invertebrate data.
-
-```{r axisSigRDA}
 full_mod <- rda(inverts_hel ~ ., chem_sub_hyp) # Model with all explanatory variables
 
 mod_aov <- anova(full_mod)  # This is a test for the overall model
@@ -605,20 +451,11 @@ mod_aov  # Model is significant
 term_aov # look for significant terms  
 axis_aov # and axes
 
-```
 
-
-# Recent advances
-
-## Resampling assessment of ordinations
-
-To demonstrate the method, we will build resampled NMDS for the Lee et al. invertebrate data and Perry et al. vegetation data based on 99 _n_ resamplings using 80% of the total data. The bootstrapping allows us to look at the confidence we might have in, for example, differences between individuals or groups of sites due to sampling variation.
-
-```{r resampleMDS}
 
 # Define number of simulations to do - slow for large data but could parallelise!
-# We'll use fitNDMS::resamp_ndms to do this.  BS is the bootstrap size and
-# B the no., of sims. Underneath it is using vegan::metaMDS
+# We'll use fitNDMS::resamp_ndms to do this.  BS is the bootstrap size and B the no., of sims
+# Underneath it is using vegan::metaMDS
 
 nsims_iv <- 199 
 nsims_aotea <- 5  # need more for analysis but this is **slow**! 
@@ -669,27 +506,14 @@ resamp.aotea.stress.gg <- ggplot(data = data.frame(s = b_aotea$stresses)) +
   geom_histogram(aes(s), bins = 10) + 
   labs(x = 'Stress', y = 'Frequency') + 
   theme_minimal()
-```
 
-
-```{r plotResampling}
 (resamp.iv.gg + resamp.iv.stress.gg) / (resamp.aotea.gg + resamp.aotea.stress.gg) + 
   plot_annotation(tag_level = 'a') +
   plot_layout(guides = "collect") & 
   theme(legend.position = 'bottom')
-```
 
-## Trajectory analysis
-Neither the invertebrate nor vegetation data we have used are suitable for trajectory analysis.  To conduct trajectory analysis in R you can use the ecotraj library - it is support by an excellent [vignette](https://cran.r-project.org/web/packages/ecotraj/vignettes/IntroductionETA.html) and some sample data.
 
-## Tests of location and dispersion
-
-Often when conducting an unconstrained ordination we have information about _a priori_ groups or explanatory variables for each site. We emphasise the _a priori_ as there is a risk of circularity in using ordination to identify groups and then assessing whether they differ from each other.  There are two questions we might ask: (i) do these groups differ in their location, and (ii) do the groups differ in their scatter ('dispersion'). The first question would allow us to assess whether there have been shifts in community structure under different management regimes, for example; the second, is relevant where there may not be a change but a site is winnowed out to a subset of some other reference community (e.g. under invasion).  Most of these methods are permutation-based (meaning we can use parallelisation to speed thigns uo) and operate on the dissimilarity matrix rather than an ordination. We'll use the Aotea data to demonstrate these methods as we have groups (geographic locations).
-
-```{r aoteaDistPermutest}
-
- # reduce if you want to speed up!
-n_perm <- 499
+n_perm <- 499     # reduce if you want to speed up!
 n_cores <- parallel::detectCores() - 1      # cores for parallelisation (set to 1 for none)
 
 aotea_dist <- vegdist(aotea_pa, method = "bray")
@@ -707,11 +531,7 @@ aotea_adonis <- adonis2(aotea_dist ~ aotea_site$code, permutations = n_perm, par
 aotea_mod <- betadisper(aotea_dist, aotea_site$code)
 aotea_mod_perm <- permutest(aotea_mod, pairwise = TRUE, permutations = n_perm)
 aotea_mod_HSD <- TukeyHSD(aotea_mod)
-```
 
-These two plots show the obsvered (red line) test statisyic and the distribution of the simulated values -- in both cases suggesting that there is a strong location effect of site (in this case due to successional differences).
-
-```{r testOutput}
 # permuted stats
 aotea_perm_dfr <- data.frame(perm = c(permustats(aotea_anosim)$permutations, 
                                 permustats(aotea_adonis)$permutations),
@@ -731,17 +551,11 @@ aotea.sim.gg <- ggplot(aotea_perm_dfr) +
 
 
 aotea.sim.gg
-```
 
-```{r permuTablesOp}
 
 aotea.adonis.td <- tidy(aotea_adonis)
 disp.rc.plot <- plot(aotea_mod, main = "")
-```
 
-As discussed in the main text, ecological community data can have strong mean-variance relationships [@wartonModelbasedThinkingCommunity2015].  Model-based approaches to multivariate analysis are a direct response to this issue. One way to address this problem is a transformation of the data to down-weight abundant species (e.g. log-transform). Clarke et al [-@clarkeDispersionbasedWeightingSpecies2006] describe a method that individually weights species based on their departure from a Poisson (mnean = variance) distribution.
-
-```{r invertDownWeight}
 inverts_dispw <- dispweight(inverts)   # vegan::dispweight implements the method
 
 iv_var <- apply(inverts, 2, var) 
@@ -763,19 +577,10 @@ iv.mds_wgt.gg <- plot.mds.gg(invert_wgt_mds, txt.x = -0.9, txt.y = -0.8, labels 
 
 (mv.raw.iv)
 (iv.mds.gg + iv.mds_wgt.gg)
-```
 
-## SIMPER and Indicator species
-
-Finally, we might want to identify the species (or variable) that characterise specific groups.  One commonly employed method to so this is SIMPER (for Brya-Curtis data).  This method, however, tends to conflate changes in species mean and variance across groups and so may pick out the most variable (see Warton et al. [-@wartonDistancebasedMultivariateAnalyses2012]). We'll try it on the Aotea vegetation data to look at what species might contribute to differences between geographic locations.
-
-```{r simperAotea}
 simper_veg <- simper(aotea_pa, group = aotea_site$code)
 # simper_veg
-```
-The function provides much information that we need to sift through (not printed out here), but we can see which species contribute most to differences between groups. We need to use permutation to assess these differences more robustly.
 
-```{r simperPermAotea}
 
 if (file.exists("rds/aotea_simper_perm.rds")) { 
   aotea_mds <- readRDS("rds/aotea_simper_perm.rds") } else {
@@ -788,36 +593,20 @@ if (file.exists("rds/aotea_simper_perm.rds")) {
 
 
 # summary(simper_perm_veg)
-```
 
-A different, and potentially more robust, approach is to use the indicator analysis descrined by de Caceres and colleagues [-@decaceresImprovingIndicatorSpecies2010;-@decaceresAssociationsSpeciesGroups2009].  This method seeks to identify 'faithful' species - in other words, those species that if present enable you to confidently determine the vegetation type (or types).  The `indicspecies` package implements this approach, building on the work of Dufrêne and Legendre [-@dufreneSpeciesAssemblagesIndicator1997].
-
-```{r indicSppAotea}
 library(indicspecies)
 n_perm <- 99
 aotea_indic <- multipatt(aotea_pa, aotea_site$code, control = how(nperm = n_perm))
 summary(aotea_indic, indvalcom = TRUE, alpha = 0.01) # summarise, showing A and B for species with p <= .01
 
-```
 
-Again, this function yields a wealth of information.  We can see that of the 273 species in the data, c 140 are deemed to provide association information (85 to 1 group). We can also see two parameters _A_ and _B_. The first of these is the probability that a site belongs to some group given the presence of the species and _B_ the probability of finding the species given the site type. As the (vignette for indicspecies)[https://cran.r-project.org/web/packages/indicspecies/vignettes/indicspeciesTutorial.pdf] notes, there are potential problems here with the familywise error rate so some correction (or caution) may be required.
-
-If we want to hone in on indicator taxa for specific groups then we can use the `indicators` function. For example, we could identify indicators (here just pairs) for the community at the Awana ('AW') site (the earliest in the succession).  We can constrain so that _A_ and _B_ are above some threshold.
-
-```{r indicatorBootAwana}
 awana_indicators <- indicators(aotea_pa, cluster = aotea_site$code, group = "AW", At = 0.7, Bt = 0.3, max.order = 2, verbose = TRUE) # set verbose FALSE to turn off the output
 
 summary(awana_indicators)
 print(awana_indicators)
-```
 
-We can estimate confidence limits for these values as well
-
-```{r indicatorAwana}
 n_boot <- 19
 awana_indicators_boot <- indicators(aotea_pa, cluster = aotea_site$code, group = "AW", At = 0.7, Bt = 0.3, max.order = 2, nboot.ci = n_boot, verbose = FALSE) # set verbose FALSE to turn off the output
 
 summary(awana_indicators_boot)
 print(awana_indicators_boot$A) # check out the A values
-```
-# References
