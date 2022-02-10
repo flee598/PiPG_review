@@ -3,9 +3,9 @@ title: "SM for Brock et al. Progress in Physical Geography"
 author: "James M.R. Brock, Finnbar Lee, John Wainwright, George L.W. Perry"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 header-includes:
  \usepackage{float}
  \floatplacement{figure}{H}
