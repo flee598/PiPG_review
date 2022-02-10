@@ -1,0 +1,409 @@
+######################################################################
+# Combining potentially incompatible datasets in NMDS ordinations
+#  Rob Smith, smithr2@oregonstate.edu, Oregon State Univ, 30 Oct 2018
+##  CC-BY-SA 4.0 License (Creative Commons Attribution-ShareAlike 4.0)
+
+###   preamble
+rm(list=ls())
+install.packages('devtools')
+devtools::install_github('phytomosaic/fitNMDS')
+pkg <- c('vegan','viridis','mgcv','coenoflex','ecole','fitNMDS')
+has <- pkg %in% rownames(installed.packages())
+if(any(!has))install.packages(pkg[!has])
+lapply(pkg, require, character.only=TRUE) ; rm(pkg, has)
+options(digits=4, scipen=6, stringsAsFactors=FALSE)
+
+### load the simulated and real datasets
+(wkdir <- getwd())
+load(file='./S2_data.rda', verbose=T)
+intak <- twin(spe_fia, spe_bnz, id_fia, id_bnz) # make 'twin' object
+
+### set up directory structure for outputs
+dir.create(file.path(wkdir, 'data/'))
+dir.create(file.path(wkdir, 'data/result_boot/'))
+dir.create(file.path(wkdir, 'data/result_recipr/'))
+dir.create(file.path(wkdir, 'data/fig/'))
+setwd(file.path(wkdir, 'data//'))
+
+####################################################################
+###### BEGIN run the resamples and reciprocal fittings ############
+
+###   simulated data: resample: internal fit  -> TIME WARN ! ! ! ! !
+# resample the reference dataset first, then all 40 modified datasets
+res_boot_ref <- resamp_nmds(simdata[[1]][[1]][['spe']])
+res_boot <- lapply(simdata, function(x) resamp_nmds(x[[2]][['spe']]))
+res_boot <- append(list(`reference`=res_boot_ref), res_boot)
+save(res_boot, file='./result_boot/res_boots_sim.rda')
+rm(res_boot_ref)
+
+###   simulated data: reciprocal: external fit
+res_recipr <- lapply(simdata, function(x)recip_nmds(x, k=2))
+save(res_recipr, file='./result_recipr/res_recipr_sim.rda')
+
+### interior Alaska: resample: internal fit -> TIME WARN ! ! ! !
+res_boot_fia <- resamp_nmds(intak[[1]][['spe']], k=3)
+res_boot_bnz <- resamp_nmds(intak[[2]][['spe']], k=3)
+save(res_boot_fia, res_boot_bnz,
+     file='./result_boot/res_boots_intak.rda')
+
+### interior Alaska: reciprocal: external fit
+res_recipr_intak <- recip_nmds(intak, k=3)
+save(res_recipr_intak, file='./result_recipr/res_recipr_intak.rda')
+
+### reciprocal: external fit CROSS-VALIDATED (FIA only)
+set.seed(11)
+intakcv <- lapply(1:999, function(x){
+     n   <- NROW(spe_fia)
+     s   <- 1:n
+     i1  <- sort(sample(s, size=n/2))
+     i2  <- setdiff(s,i1)
+     sp1 <- ecole::mx_dropzero(spe_fia[i1,])
+     sp2 <- ecole::mx_dropzero(spe_fia[i2,])
+     id1 <- id_fia[i1,]
+     id2 <- id_fia[i2,]
+     if(ecole::mx_valid(sp1) && ecole::mx_valid(sp2)){
+          twin(sp1,sp2,id1,id2)
+     }
+})
+res_CV <- lapply(intakcv, function(x) recip_nmds(x,k=3))
+save(res_CV, intakcv, file='./result_recipr/res_intak_CV.rda')
+
+### ....or, simply load results from previous (saves time)
+# simulated data, resample results
+load('./result_boot/res_boots_sim.rda')
+# simulated data, reciprocal results
+load('./result_recipr/res_recipr_sim.rda')
+# interior Alaska data, resample results
+load('./result_boot/res_boots_intak.rda')
+# interior Alaska data, reciprocal results
+load('./result_recipr/res_recipr_intak.rda')
+# interior Alaska data, CROSS-VALIDATED reciprocal results
+load('./result_recipr/res_intak_CV.rda')
+
+###### END resamples and reciprocal fittings ######################
+####################################################################
+
+
+######################################################################
+###### BEGIN summary table  -- SIMULATED data  #######################
+
+# summary of data matrices
+R     <- 5 # n replicate simulated datasets per nmod
+nmods <- c(10,20,30,40) # n species progressively modified
+d <-do.call(cbind,lapply(simdata,function(x)mx_diversity(x[[2]]$spe)))
+d <- cbind(mx_diversity(simdata[[1]][[1]]$spe), d) # add ref data
+dimnames(d)[[2]] <- c('reference', names(simdata))
+d <- data.frame(t(d))
+
+# a few helpful columns for grouping and plotting
+d$nmodified <- c(0, rep(nmods,ea=R), rep(nmods,ea=R))
+d$nested    <- c(0, rep(nmods,ea=R), rep(0,4*R))
+d$replaced  <- c(0, rep(0,4*R),      rep(nmods,ea=R))
+d$betatype  <- as.factor(c('ref', rep('nest',4*R), rep('repc',4*R)))
+d$cols <- c('#00000080', rep('#FF000080',4*R), rep('#0000FF80',4*R))
+d$nmod_adj <- d$nmodified + (d$cols=='#FF000080')*(-0.5)
+
+# add summary of resamples
+d <- cbind(d, t(sapply(res_boot, summary)))
+
+# add median stress per resample
+d <- cbind(d, stress_median=sapply(1:41,function(i)
+     median(res_boot[[i]][['stresses']])))
+
+# add summary of reciprocal fits
+d <- cbind(d, rbind(NA, t(sapply(res_recipr, summary))))
+
+# add summary of beta-diversity decomposition
+### helper function: beta-diversity decomposition
+`nbs` <- function(i, ...){
+     xn <- dimnames(i[[1]]$spe)[[2]]
+     yn <- dimnames(i[[2]]$spe)[[2]]
+     xx <- matrix(1, ncol=length(xn), dimnames=list(1, xn))
+     yy <- matrix(1, ncol=length(yn), dimnames=list(1, yn))
+     zz <- mx_rbind_all(xx, yy)
+     vegan::nestedbetasor(zz)
+}
+a <- t(sapply(simdata, nbs))
+d <- cbind(d, rbind(NA, a))
+d$betasor <- c(NA, d$nestedness[2:21], d$turnover[22:41])
+
+# add summary of fit to environment (adj-R2 from GAM)
+`gamfit` <- function(res, data, method, ...){
+     if(class(data)=='twin') id <- untwin(data)[[2]] else id <- data
+     stopifnot( identical(row.names(res$m1), row.names(id)) )
+     colnames(res$m2) <- paste0(colnames(res$m2),'_')
+     id <- cbind(res$m1, res$m2, id)
+     if(method==1){
+          out <- data.frame(
+               nms1 =summary(gam(MDS1~s(PC1)+s(PC2)+s(PC3),
+                                 data=id))$r.sq,
+               nms2 =summary(gam(MDS2~s(PC1)+s(PC2)+s(PC3),
+                                 data=id))$r.sq,
+               nms3 =summary(gam(MDS3~s(PC1)+s(PC2)+s(PC3),
+                                 data=id))$r.sq,
+               nms1_=summary(gam(MDS1_~s(PC1)+s(PC2)+s(PC3),
+                                 data=id))$r.sq,
+               nms2_=summary(gam(MDS2_~s(PC1)+s(PC2)+s(PC3),
+                                 data=id))$r.sq,
+               nms3_=summary(gam(MDS3_~s(PC1)+s(PC2)+s(PC3),
+                                 data=id))$r.sq)
+     }
+     if(method==2){
+          out <- data.frame(
+               nms1=summary(gam(MDS1~s(x1,k=7)+s(x2,k=7),
+                                data=id))$r.sq,
+               nms2=summary(gam(MDS2~s(x1,k=7)+s(x2,k=7),
+                                data=id))$r.sq,
+               nms1_=summary(gam(MDS1_~s(x1,k=7)+s(x2,k=7),
+                                 data=id))$r.sq,
+               nms2_=summary(gam(MDS2_~s(x1,k=7)+s(x2,k=7),
+                                 data=id))$r.sq)
+     }
+     out
+}
+a <- mapply(gamfit, res_recipr, simdata, as.vector(rep(2,40),'list'))
+rownm <- dimnames(a)[[2]]
+colnm <- paste0('R2_env_', dimnames(a)[[1]])
+a <- t(round(matrix(sapply(a, unlist), nrow=4, ncol=40), 2))
+dimnames(a) <- list(rownm, colnm)
+d <- cbind(d, rbind(NA, a))
+rm(nmods, R, a, rownm, colnm)
+
+### final summary table
+head(d)
+write.csv(d, './sumtab.csv')
+
+###### END summary table  -- SIMULATED   #############################
+######################################################################
+
+
+######################################################################
+###### BEGIN summary table  -- INTAK   ###############################
+
+# temporary list of resample results
+tmp <- list(res_boot_fia, res_boot_bnz)
+
+# summary of data matrices
+z <- do.call(cbind,lapply(intak, function(x)mx_diversity(x$spe) ))
+dimnames(z)[[2]] <- c('fia', 'bnz')
+z <- data.frame(t(z))
+
+# add summary of resamples
+z <- cbind(z, t(sapply(tmp, summary)))
+
+# add median stress per resample
+z <- cbind(z, stress_median=sapply(1:2,function(i)
+     median(tmp[[i]][['stresses']])))
+
+# add summary of reciprocal fits
+z <- cbind(z, rbind(NA, summary(res_recipr_intak)))
+
+# reciprocal NMDS model fit enviro == R2 from GAM fit
+#     first find principal components of some key climate variables
+x     <- mx_rbind_all(id_fia, id_bnz)
+keeps <- c('tmax_wt','tmax_sp','tmax_sm', 'tmax_at',
+           'tmin_wt','tmin_sp','tmin_sm','tmin_at',
+           'ppt_wt','ppt_sp', 'ppt_sm','ppt_at',
+           'rad_sp','rad_sm','eref_sp','eref_sm','cmd_sp','cmd_sm')
+pc <- prcomp(x[,which(names(x)%in%keeps)], scale.=TRUE)
+pc <- as.data.frame(pc$x[,1:7])    # first 7 PCs
+row.names(res_recipr_intak$m1) <-
+     gsub('\\.', '', row.names(res_recipr_intak$m1) )
+# then fit GAMs
+a <- gamfit(res_recipr_intak, pc, method=1)
+colnm <- dimnames(a)[[2]]
+a <- round(matrix(sapply(a, unlist), nrow=2, ncol=3), 2)
+dimnames(a) <- list(dimnames(z)[[1]], colnm[1:3])
+z <- cbind(z, a)
+
+### final summary table
+z
+write.csv(z, './sumtab_intak.csv')
+
+### results: cross-validation of reciprocal fit
+w <- do.call(cbind,lapply(intakcv,function(x)mx_diversity(x[[2]]$spe)))
+w <- data.frame(t(w))
+w <- cbind(w, t(sapply(res_CV, summary)))
+w <- cbind(w, t(sapply(intakcv, nbs)))
+head(w)
+hist(w$rP_external, breaks=55, col='#00000050')
+abline(v=median(w$rP_external), col=2, lwd=2)
+median(w$rP_external)                        # median of CV values
+e   <- ecdf(w$rP_external)                   # ECDF of CV values
+obs <- res_recipr_intak$sumtab['rP_external'] # observed value
+e(obs)   # observed value is at 7th percentile of CV values
+
+### cleanup
+rm(tmp, pc, a, x, z, w, e, obs, colnm, nbs, gamfit)
+
+###### END summary table  -- INTAK  ##################################
+######################################################################
+
+
+######################################################################
+###### BEGIN beta-diversity decomposition   ##########################
+
+### number of species nested vs replaced
+xn     <- dimnames(spe_fia)[[2]]
+yn     <- dimnames(spe_bnz)[[2]]
+shared <- intersect(xn, yn)   # shared species
+uq_fia <- setdiff(xn, yn)     # unique to FIA
+uq_bnz <- setdiff(yn, xn)     # unique to BNZ
+(aa     <- length(shared))    # n shared
+(bb     <- length(uq_fia))    # n unique FIA
+(cc     <- length(uq_bnz))    # n unique BNZ
+length(union(xn, yn))         # n of all species collectively
+bb/(aa+bb)                    # 32% of fia's species are unique
+cc/(aa+cc)                    # 22% of bnz's species are unique
+
+### identify shared and unique *common* species
+m <- mx_rbind_all((spe_fia>0)*1, (spe_bnz>0)*1) # combined binary mx
+f <- apply(m, 2, mean) # combined relfreq
+fshared <- f[ match(shared, names(f), nomatch=0) ]
+fuq_fia <- f[ match(uq_fia, names(f), nomatch=0) ]
+fuq_bnz <- f[ match(uq_bnz, names(f), nomatch=0) ]
+sort(fshared[fshared>0.5])
+sort(fuq_fia[fuq_fia>0.01])
+sort(fuq_bnz[fuq_bnz>0.01])
+
+### beta-diversity decomposition among inventory types
+xx <- matrix(1, ncol=length(xn), dimnames=list(1, xn))
+yy <- matrix(1, ncol=length(yn), dimnames=list(1, yn))
+zz <- mx_rbind_all(xx, yy)
+vegan::nestedbetasor(zz)
+
+### average alpha diversity
+`lm_richness` <- function(data, ...){
+     tmp    <- untwin(data)[[1]]
+     id     <- untwin(data)[[2]]
+     tmp    <- (tmp>0)*1                # make binary
+     id$n0  <- rowSums(tmp, na.rm=TRUE) # species richness
+     id$grp <- as.factor(rep(c(1,2), each=nrow(tmp)/2))
+     m1     <- lm( id$n0 ~ id$grp)
+     cbind(confint(m1),
+           `est.`    = summary(m1)$coefficients[,1],
+           `numDF`   = rep(1L,2), `denDF`=rep(NA,2),
+           `F-value` = c(NA, anova(m1)$`F value`[1]),
+           `p-value` = summary(m1)$coefficients[,4])
+}
+lm_richness(intak)
+
+### cleanup
+rm(xn,yn,shared,uq_fia,uq_bnz,fuq_fia,fuq_bnz,aa,bb,cc,xx,yy,zz,m,f,
+   fshared,lm_richness)
+
+###### END intak beta-diversity decomposition   ######################
+######################################################################
+
+
+######################################################################
+###   BEGIN plot results   ###########################################
+
+## Fig 2 -- plot Rp internal vs Rp external -- simulated
+tiff('./fig/fig_02_Rp_sim.tif', wid=6.5, hei=2.2,
+     units='in', compr='lzw+p', bg='transparent', res=500)
+op <- set_par(3)
+c1 <- '#FF000080'
+c2 <- '#0000FF80'
+# INTERNAL fit vs number of spp modified
+plot(d$nmod_adj, d$rP_internal, pch=16, col=d$cols, las=1, bty='l',
+     xlab='Number species modified',
+     ylab=bquote(paste(R[P], ' (internal)')),
+     ylim=c(.1,1),xlim=c(5,45))
+add_label('a')
+legend('bottomleft', c('Nestedness','Turnover'),f=c(2,4), cex=0.7)
+clip(10, 40, 0, 2)
+abline(lm(d$rP_internal[d$cols==c1] ~ d$nmod_adj[d$cols==c1]), col=2)
+abline(lm(d$rP_internal[d$cols==c2] ~ d$nmod_adj[d$cols==c2]), col=4)
+# EXTERNAL fit vs number of spp modified
+plot(d$nmod_adj, d$rP_external, pch=16, col=d$cols, las=1, bty='l',
+     xlab='Number species modified',
+     ylab=bquote(paste(R[P], ' (external)')),
+     ylim=c(.1,1),xlim=c(5,45))
+add_label('b')
+legend('bottomleft', c('Nestedness','Turnover'),f=c(2,4), cex=0.7)
+clip(10, 40, 0, 2)
+abline(lm(d$rP_external[d$cols==c1] ~ d$nmod_adj[d$cols==c1]), col=2)
+abline(lm(d$rP_external[d$cols==c2] ~ d$nmod_adj[d$cols==c2]), col=4)
+# EXTERNAL fit vs Sorensen beta-diversity components
+plot(d$betasor, d$rP_external, pch=16, col=d$cols, las=1, bty='l',
+     xlab = expression(paste(beta,'-diversity decomposition')),
+     ylab=bquote(paste(R[P], ' (external)')),
+     ylim=c(.1,1),xlim=c(.05,.85))
+add_label('c')
+legend('bottomleft', c('Nestedness','Turnover'),f=c(2,4), cex=0.7)
+clip(.1, .81, 0, 2)
+abline(lm( d$rP_external[d$cols==c1] ~ d$betasor[d$cols==c1]), col=2)
+abline(lm( d$rP_external[d$cols==c2] ~ d$betasor[d$cols==c2]), col=4)
+par(op)
+dev.off()
+
+
+## Fig 3 -- 40 resample spider plots -- simulated
+tiff('./fig/fig_03_spider_sim.tif', wid=6.5, hei=4.5,
+     units='in', compr='lzw+p', bg='transparent', res=500)
+op <- par(mfcol=c(5,8),oma=c(3.1,1.1,.1,.1), mar=rep(.2,4))
+invisible(lapply(2:41,function(i)plot(res_boot[[i]],T,"#00000020")))
+s <- seq(0.06,0.94,len=8)
+mtext(rep((1:4)*10,2), 1, line=.3, outer=T, cex=0.8, at=s)
+mtext('Number of species modified (nestedness)', 1, line=1.8,
+      outer=T, cex=.9, at=0.25)
+mtext('Number of species modified (turnover)', 1, line=1.8,
+      outer=T, cex=.9, at=0.75)
+mtext('Five replicates', 2, line=0, outer=T, cex=.9)
+par(op)
+dev.off()
+
+
+## Fig 4 -- 40 reciprocal NMDS configurations -- simulated
+tiff('./fig/fig_04_recipr_sim.tif', wid=6.5, hei=4.5,
+     units='in', compr='lzw+p', bg='transparent', res=500)
+op <- par(mfcol=c(5,8),oma=c(3.1,1.1,.1,.1), mar=rep(0,4)+.2)
+for(m in 0:3){
+     a <- m*5
+     plot(res_recipr[[1+a]], 'p')
+     for(q in 2:5) plot(res_recipr[[q+a]], 'p')
+}
+for(m in 0:3){
+     a <- (m*5)+20
+     plot(res_recipr[[1+a]], 'p')
+     for(q in 2:5) plot(res_recipr[[q+a]], 'p')
+}
+s <- seq(0.06,0.94,len=8)
+mtext(rep((1:4)*10,2), 1, line=.3, outer=T, cex=0.8, at=s)
+mtext('Number of species modified (nestedness)', 1, line=1.8,
+      outer=T, cex=.9, at=0.25)
+mtext('Number of species modified (turnover)', 1, line=1.8,
+      outer=T, cex=.9, at=0.75)
+mtext('Five replicates', 2, line=0, outer=T, cex=.9)
+par(op)
+dev.off()
+
+
+## Fig 5 -- compound figure -- intak
+tiff('./fig/fig_05_recipr_ak.tif', wid=5, hei=4,
+     units='in', compr='lzw+p', bg='transparent', res=500)
+res     <- res_recipr_intak
+x       <- as.data.frame(cbind(res$m1, res$m2))
+layout(matrix(c(1,1,1,2, 1,1,1,3, 1,1,1,4), 3, 4, byrow=T))
+op <- par(oma=c(1,0,0,0), mar=c(1,1,2,1)+.1, mgp=c(3,0.6,0))
+ordiplot(res$m1,type='n',bty='n',axes=F,ylab='',xlab='')
+points(res$m1, col=rgb(0,0,0,.5), pch=16, cex=1)
+arrows(res$m1[,1], res$m1[,2], res$m2[,1], res$m2[,2],
+       col=rgb(0,0,0,.4), len=0.02, angle=20)
+text(grconvertX(.6, 'npc'), grconvertY(.1, 'npc'),
+     'FIA scores = circles\nBNZ scores = arrowheads',adj=c(0,1),cex=1)
+plot_ortho(x[,1], x[,4], xlab='', ylab='', cex.axis=.6, cex=.5)
+mtext('NMDS1:', 3, 0, at=grconvertX(0, 'npc'), adj=0, cex=.7)
+plot_ortho(x[,2], x[,5],  xlab='', ylab='', cex.axis=.6, cex=.5)
+mtext('NMDS2:', 3, 0, at=grconvertX(0, 'npc'), adj=0, cex=.7)
+plot_ortho(x[,3], x[,6],  xlab='', ylab='', cex.axis=.6, cex=.5)
+mtext('NMDS3:', 3, 0, at=grconvertX(0, 'npc'), adj=0, cex=.7)
+par(op)
+rm(x, res, op)
+dev.off()
+
+###   END plot results   #############################################
+######################################################################
+
+### end ###
