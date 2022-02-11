@@ -27,29 +27,30 @@ Commented R code for analyses described in Brock et al. PiPG Progress reports
 
 This document shows how to perform the analyses described in Brock et al. largely using the data from Lee et al. [-@leePreySelectivityOntogenetic2018] and Perry et al. [-@perryVegetationPatternsTrajectories2010]. It is *not* a detailed description of the methods themselves (for that see references in the main document) but rather an example of how to conduct the sorts of analyses mentioned in the article.
 
-First we'll load some packages necessary for the wrangling, visualisation and analyses.
+First we'll load some packages necessary for the wrangling, visualisation, and analyses.
 ```{r loadLibraries, message=FALSE}
 # load pacman package + install if missing - used to load/install multiple packages at once
 if (!require("pacman")) install.packages("pacman")
 
 # load packages + install any that are missing
+# GP - I ma having linking issues in nix with mvabund...
+
 pacman::p_load(tidyverse, broom, knitr, janitor, ggfortify, patchwork,
-               mdthemes, vegan, analogue, ggvegan, mvabund, Rtsne, umap, devtools)
+               mdthemes, vegan, analogue, ggvegan, Rtsne, umap, devtools)
 ```
 
 ```{r loadLibraries_2, eval = FALSE}
-# install packages from GitHub (not available on CRAN)
+# install packages from GitHub (not available on CRAN) - this will check, and only install if reqd
 devtools::install_github("phytomosaic/ecole")
 devtools::install_github("phytomosaic/fitNMDS")
 devtools::install_github("jfq3/ggordiplots")
 devtools::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
 devtools::install_github("gavinsimpson/ggvegan")
-
 ```
 
 ```{r loadFunctions}
 # load newly installed packages from GitHub
-pacman::p_load(ecole, fitNMDS, ggordiplots, pairwiseAdonis, ggvegan) 
+pacman::p_load(ecole, fitNMDS, ggordiplots, pairwiseAdonis, ggvegan)
 
 # load custom functions for plotting ordinations from vegan
 source("auxScripts/helperPlots.r")
@@ -59,7 +60,9 @@ source("auxScripts/helperPlots.r")
 # Load data
 Load data we'll explore and do some re-organising. We need to be a bit cautious because although base `R` and many multivariate analysis packages (e.g., `vegan`) use row names, the `tidyverse` (tibbles) does _not_ as they don't confirm to tidy data. Need to be aware of this when moving between the two.
 
-First, load freshwater invertebrate, physiochemical and location data from Auckland, New Zealand from Lee et al. [-@leePreySelectivityOntogenetic2018]
+First, load freshwater invertebrate, physiochemical and location data from Auckland, New Zealand from Lee et al. [-@leePreySelectivityOntogenetic2018].
+## @ Finn - maybe add 2-3 sentences with some context for this work?
+
 ```{r loadLeeData}
 # Load data and tidy up
 # invert abundances
@@ -81,7 +84,7 @@ inverts_hel <- decostand(inverts, method = "hel") # Hellinger transformed
 chem <- janitor::clean_names(chem)
 
 # Only keep sit4s with invert data and remove some less useful variables
-chem_sub <- chem[chem_sites %in% invert_sites,]
+chem_sub <- chem[chem_sites %in% invert_sites, ]
 chem_sub <- select(chem_sub, -order, -land_form, -taxa, -qmci,
                    -mci, -ept, -proportion_ept, -gambusia)
 
@@ -95,14 +98,14 @@ rip_cover <- chem_sub$proportion_riparian_cover0_5 > 0.2
 native_cover <- chem_sub$native > 0.2
 ```
 
-Second, load vegetation data from Aotea/Great Barrier Island (New Zealand) from Perry et al. [-@perryVegetationPatternsTrajectories2010].
+Second, load vegetation data from Aotea/Great Barrier Island (New Zealand) from Perry et al. [-@perryVegetationPatternsTrajectories2010].  These data are collected from geographic locations across Aotea using a plotless method of vegetation survey.  The geographic locations span a succesional sequence from post-fire recovery to mature secondary forest.
 
 ```{r loadAoteaData, warning = FALSE}
 # Load the Aotea veg data
 # vegan uses row names, but the tidyverse doesn"t!
 aotea <- read.csv(file = "Data/aotea_allyears_tidy.csv", row.names = 1)
 aotea_pa <- decostand(aotea, method = "pa")           # convert to presence-absence
-aotea_pa_nosing <- aotea_pa[,colSums(aotea_pa) > 1]   # PA without any singletons
+aotea_pa_nosing <- aotea_pa[, colSums(aotea_pa) > 1]   # PA without any singletons
 
 # Make the site labels more useful
 dfr <- data.frame(site = rownames(aotea_pa))
@@ -111,33 +114,33 @@ aotea_site$code <- str_sub(aotea_site$code, end = 2)
 rm(dfr)
 ```
 
-
 # Visualisation of the multivariate data
 Now, some basic visualisation to highlight the nature of multivariate (ecological) data using the Lee et al. data. This is **Figure X** in the main document.
+
 ```{r visualiseMVA}
 # First, lengthen the data to make it easier for ggplot
-aotea.long <- aotea %>%
+aotea_long <- aotea %>%
   rownames_to_column(var = "site") %>%
   pivot_longer(cols = -site, names_to = "taxa", values_to = "abund")
 
-inverts.long <- inverts %>% 
+inverts_long <- inverts %>% 
   rownames_to_column(var = "site") %>%
   pivot_longer(cols = -site, names_to = "taxa", values_to = "abund")
 
 # Histogram of number of sites each spp occurs at for Lee et al.
-n.sites.iv <- data.frame(n = colSums(inverts > 0))
+n_sites_iv <- data.frame(n = colSums(inverts > 0))
 
-sites.hist.iv.gg <- ggplot(n.sites.iv) + 
+sites_hist_iv_gg <- ggplot(n_sites_iv) + 
   geom_histogram(aes(x = n), binwidth = 1) +
   labs(x = "No. of sites", y = "Frequency") +
   theme_minimal()
 
 # A heat map of abundance for species x site for Lee et al. data
-inverts.long$taxa_num <- as.numeric(factor(inverts.long$taxa,
-                                           levels = unique(inverts.long$taxa)))
+inverts_long$taxa_num <- as.numeric(factor(inverts_long$taxa,
+                                           levels = unique(inverts_long$taxa)))
 
-heat.iv.gg <- ggplot(inverts.long, aes(x = site, y = taxa_num)) +
-  geom_raster(aes(fill=log10(abund)), show.legend = FALSE) +
+heat_iv_gg <- ggplot(inverts_long, aes(x = site, y = taxa_num)) +
+  geom_raster(aes(fill = log10(abund)), show.legend = FALSE) +
   scale_fill_gradient(low="grey99", high="red") +
   labs(x = "Site", y = "Taxa") +
   theme_minimal() + 
@@ -145,11 +148,11 @@ heat.iv.gg <- ggplot(inverts.long, aes(x = site, y = taxa_num)) +
         axis.ticks.x=element_blank())
 
 # A dotplot to replicate that in Wang et al. 2012 Methods Ecol Evol
-warton.iv <- data.frame(x = as.vector(as.matrix(inverts)), 
+wang_iv <- data.frame(x = as.vector(as.matrix(inverts)), 
                         y = rep(1:77, each = 29), 
                         col = chem_sub$native > 0.4)
 
-dot.wang.iv.gg <- ggplot(data = warton.iv) + 
+dot_wang_iv_gg <- ggplot(data = wang_iv) + 
   geom_point(aes(x = log10(x+1), y = y, col = col),
              alpha = 0.8, size = 2, show.legend = FALSE) + 
   scale_color_brewer(type = "qual") +
@@ -159,7 +162,7 @@ dot.wang.iv.gg <- ggplot(data = warton.iv) +
   md_theme_minimal()   # mdthemes lets us use markdown in graph notations
 
 # combine plots
-fig1 <- sites.hist.iv.gg + heat.iv.gg + dot.wang.iv.gg +
+fig1 <- sites_hist_iv_gg + heat_iv_gg + dot_wang_iv_gg +
 plot_annotation(tag_levels = "a")
 ```
 
@@ -176,11 +179,11 @@ inverts_mv <- data.frame(mean = colMeans(inverts),
                          var = apply(inverts , 2, var))
 
 # plot
-invert.mean.gg <- ggplot(data = inverts_mv) + 
+invert_mean_gg <- ggplot(data = inverts_mv) + 
   geom_point(aes(x = log10(mean), y = log10(var)), alpha = 0.8, size = 2) + 
   labs(y = "Variance (log<sub>10</sub> scale)",
        x = "Mean (log<sub>10</sub> scale)") +
-  md_theme_minimal() 
+  md_theme_bw() 
 
 # Aotea vegetation data
 # calculate mean and varaince
@@ -188,14 +191,14 @@ aotea_mv <- data.frame(mean = colMeans(aotea_pa),
                        var = apply(aotea_pa , 2, var))
 
 # plot
-veg.mean.gg <- ggplot(data = aotea_mv) + 
+veg_mean_gg <- ggplot(data = aotea_mv) + 
   geom_point(aes(x = log10(mean), y = log10(var)), alpha = 0.8, size = 2) + 
   labs(y = "Variance (log<sub>10</sub> scale)",
        x = "Mean (log<sub>10</sub> scale)") +
-  md_theme_minimal() 
+  md_theme_bw() 
 
 # combine plots
-fig2 <- invert.mean.gg + veg.mean.gg +
+fig2 <- invert_mean_gg + veg_mean_gg +
   plot_annotation(tag_levels = "a")
 ```
 
@@ -247,7 +250,7 @@ xl_w <- paste("Dimension 1 (",pcoa_wgt_eig$expl[1], "%)", sep = "")
 yl_w <- paste("Dimension 2 (", pcoa_wgt_eig$expl[2], "%)", sep = "")
 
 ## unweighted plot
-pcoa.gg <- ggplot(pcoa_scores) + 
+pcoa_gg <- ggplot(pcoa_scores) + 
   geom_text(aes(x = Dim1, y = Dim2, label = site), size = 3) + 
   labs(x = xl,
        y = yl) + 
@@ -255,7 +258,7 @@ pcoa.gg <- ggplot(pcoa_scores) +
   theme_bw()
 
 # eigenvalues plot
-pcoa.eig.gg <- ggplot(pcoa_eig) + 
+pcoa_eig_gg <- ggplot(pcoa_eig) + 
   geom_bar(aes(x = as.factor(1:10), y = expl),
            stat = "identity") + 
   labs(x = "Dimension",
@@ -263,7 +266,7 @@ pcoa.eig.gg <- ggplot(pcoa_eig) +
   theme_bw()
 
 ## weighted plot
-pcoa.wgt.gg <- ggplot(pcoa_scores) + 
+pcoa_wgt_gg <- ggplot(pcoa_scores) + 
   geom_text(aes(x = Dim1_wgt, y = Dim2_wgt, label = site, size = w)) + 
   scale_size_continuous(range  = c(1, 4)) +
   labs(x = xl_w,
@@ -273,15 +276,17 @@ pcoa.wgt.gg <- ggplot(pcoa_scores) +
   theme_bw()
 
 # eigenvalues plot
-pcoa.eig.wgt.gg <- ggplot(pcoa_wgt_eig) + 
+pcoa_eig_wgt_gg <- ggplot(pcoa_wgt_eig) + 
   geom_bar(aes(x = as.factor(1:10), y = expl), stat = "identity") + 
   labs(x = "Dimension",
        y = "Eigenvalue (% total)") +
   theme_bw()
 
 # gather plots
-fig3 <- pcoa.gg + pcoa.eig.gg + pcoa.wgt.gg + pcoa.eig.wgt.gg + 
-    plot_layout(widths = c(1, 1)) + plot_annotation(tag_levels = 'a') & theme(legend.position = 'bottom')
+fig3 <- (pcoa_gg + pcoa_eig_gg + pcoa_wgt_gg + pcoa_eig_wgt_gg) + 
+  plot_layout(widths = c(1, 1)) + 
+  plot_annotation(tag_levels = 'a') & 
+  theme(legend.position = 'bottom')
 
 ```
 
@@ -300,30 +305,17 @@ invert_dist <- vegdist(inverts)
 invert_mds <- metaMDS(invert_dist, autotransform = FALSE, trace = 1)
 
 # Make the plots (using custom plot.mds.gg function from helperPlots.r)
-iv.mds.gg <- plot.mds.gg(invert_mds, txt.x = -0.35,
+iv_mds_gg <- plot.mds.gg(invert_mds, txt.x = -0.35,
                          txt.y = -0.35,labels = TRUE,
                          msl = 0.25)
 
-
-# NOT USED - remove? 
-
-#nMDS coloured by native veg cover
-# iv.mds_cluster.gg <- plot.mds.gg(invert_mds,
-#                                  txt.x = -0.4, txt.y = -0.4,
-#                                  clusters = native_cover) 
-
-# Shepperd plots (distance in nMDS vs distance in dissimilarity matrix)
-# iv.shep.gg <- plot.shepp.gg(invert_dist, invert_mds)
-
-
-
 # nMDS with points scaled in size by abundance of _Physa_
 wgt <- inverts$Physa / 10
-iv.bubble.gg <- plot.mds.bubble.gg(invert_mds, weights = wgt)
+iv_bubble_gg <- plot.mds.bubble.gg(invert_mds, weights = wgt)
 
 # Fit the chemical data as environmental vectors (envfit) and plot
 iv_chem_fit <- envfit(invert_mds, chem_sub_hyp)
-iv.fit.gg <- plot.envfit.gg(invert_mds, iv_chem_fit, p.max = .2,
+iv_fit_gg <- plot.envfit.gg(invert_mds, iv_chem_fit, p.max = .2,
                             clusters = native_cover)
 
 # Or we could synthesis all the chem data with a PCA and fit those axes
@@ -331,13 +323,13 @@ chem_pca <- princomp(chem_sub, cor = TRUE)
 chem_pca_scores <- scores(chem_pca)
 iv_pca_fit <- envfit(invert_mds, chem_pca_scores[,1:8])
 
-iv.fitpca.gg <- plot.envfit.gg(invert_mds,
+iv_fitpca_gg <- plot.envfit.gg(invert_mds,
                                iv_pca_fit,
                                p.max = .1,
                                clusters = native_cover)
 
 # gather plots
-fig4 <- (iv.mds.gg + iv.bubble.gg + iv.fit.gg + iv.fitpca.gg) +
+fig4 <- (iv_mds_gg + iv_bubble_gg + iv_fit_gg + iv_fitpca_gg) +
   plot_annotation(tag_levels = "a") + 
   plot_layout(ncol = 2, guides ="collect") & 
   theme(legend.position = "bottom")
@@ -391,18 +383,18 @@ if (file.exists("rds/aotea_mds.rds")) {
 }
 
 # plot Shepperd plot
-aotea.shep.gg <- plot.shepp.gg(aotea_dist, aotea_mds)
+aotea_shep_gg <- plot.shepp.gg(aotea_dist, aotea_mds)
 
 # plot ordination
-aotea.mds.gg <- plot.mds.gg(aotea_mds, txt.x = -0.6, txt.y = -0.35,
+aotea_mds_gg <- plot.mds.gg(aotea_mds, txt.x = -0.6, txt.y = -0.35,
                             clusters = factor(aotea_site$code)) +
                 theme(legend.position = "bottom")
 
 # nMDS with points scaled to the abundance of the late successional tree, Beilschmiedia tawa
-aotea.bubble <- plot.mds.bubble.gg(aotea_mds, weights = aotea$Beitaw)
+aotea_bubble <- plot.mds.bubble.gg(aotea_mds, weights = aotea$Beitaw)
 
 # gather plots
-fig5 <- (aotea.shep.gg + aotea.mds.gg) + 
+fig5 <- (aotea_shep_gg + aotea_mds_gg) + 
   plot_annotation(tag_levels = "a")
 ```
 
@@ -411,7 +403,7 @@ fig5
 ```
 
 ```{r plotnMDSAotea2, echo = FALSE, fig.cap = "nMDS ordination of of vegetation data with point size scaled by the abundance of the late successional tree, *Beilschmiedia tawa*"}
-aotea.bubble
+aotea_bubble
 ```
 
 
@@ -469,13 +461,14 @@ And plot them; clearly, and perhaps unsurprisingly, the choice of distance metri
 
 
 ```{r plotivTSNE, fig.cap = "tSNE for the Lee et al. data with different perplecities and using distance matrices."}
-tsne3.gg <- plot.tsne.gg(invert_tsne_p3, invert_sites)
-tsne6.gg <- plot.tsne.gg(invert_tsne_p6, invert_sites)
-tsned3.gg <- plot.tsne.gg(invert_tsne_bc_p3, invert_sites)
-tsned6.gg <- plot.tsne.gg(invert_tsne_bc_p6, invert_sites)
 
-tsne3.gg + tsne6.gg
-tsned3.gg + tsned6.gg
+tsne3_gg <- plot.nonlin.gg(invert_tsne_p3, site_labels = invert_sites, labels = TRUE)
+tsne6_gg <- plot.nonlin.gg(invert_tsne_p6, site_labels = invert_sites, labels = TRUE)
+tsned3_gg <- plot.nonlin.gg(invert_tsne_bc_p3, site_labels = invert_sites, labels = TRUE)
+tsned6_gg <- plot.nonlin.gg(invert_tsne_bc_p6, site_labels = invert_sites, labels = TRUE)
+
+tsne3_gg + tsne6_gg
+tsned3_gg + tsned6_gg
 # plot.tsne.gg <- function(tsn, sites = rownames(tsn), labels_txt = TRUE, clusters = NULL)
 ```
 We can now apply the tSNE to the much larger Aotea vegetation data; again, assessing two different perplexities and with/without the Bray-Curtis measure.
@@ -501,17 +494,17 @@ aotea_tsne_bc_p50 <- Rtsne(aotea_dist, perplexity = 50, theta = 0.0, is_distance
 And plot them. Here the differences between the two distance metrics are less clear.  The algorithm tends to cluster the geographic locations together and order them in a successional sequence (from 'AW' to 'Te') while showing also that they form a continuum based on their composition.
 
 ```{r plotAoteaTSNE, fig.cap = "tSNE for the Perry et al. data with different perplexities and using distance matrices; colours represent geographic locations."}
+lb <- 1:nrow(aotea_pa_nodup)
 
-tsne_ao_p25.gg <- plot.tsne.gg(aotea_tsne_p25, labels_txt = FALSE, clusters = aotea_sites_nd)
-tsne_ao_p50.gg <- plot.tsne.gg(aotea_tsne_p50, labels_txt = FALSE, clusters = aotea_sites_nd)
-tsne_ao_d_p25.gg <- plot.tsne.gg(aotea_tsne_bc_p25, labels_txt = FALSE, clusters = aotea_sites_nd)
-tsne_ao_d_p50.gg <- plot.tsne.gg(aotea_tsne_bc_p50, labels_txt = FALSE, clusters = aotea_sites_nd)
+tsne_ao_p25_gg <- plot.nonlin.gg(aotea_tsne_p25, clusters = aotea_sites_nd)
+tsne_ao_p50_gg <- plot.nonlin.gg(aotea_tsne_p50, clusters = aotea_sites_nd)
+tsne_ao_d_p25_gg <- plot.nonlin.gg(aotea_tsne_bc_p25, clusters = aotea_sites_nd)
+tsne_ao_d_p50_gg <- plot.nonlin.gg(aotea_tsne_bc_p50, clusters = aotea_sites_nd)
 
-(tsne_ao_p25.gg + tsne_ao_p50.gg + tsne_ao_d_p25.gg + tsne_ao_d_p50.gg) +
+(tsne_ao_p25_gg + tsne_ao_p50_gg + tsne_ao_d_p25_gg + tsne_ao_d_p50_gg) +
   plot_layout(ncol = 1, guides = "collect") &
   theme(legend.position = "bottom")
 
-# plot.tsne.gg <- function(tsn, sites = rownames(tsn), labels_txt = TRUE, clusters = NULL)
 ```
 
 ### UMAP
@@ -545,9 +538,9 @@ aotea_umap_md05 <- umap(aotea_pa, config = umap_hparam)
 The final configuration is reasonably robust to the hyper-parameter values (location clustering is similar and the successional sequence evident).
 
 ```{r plotUmapAotea, fig.cap = "UMAP for the Perry et al. data with different hyper-parameter values; colours represent geographic locations."}
-aotea_umap  <- plot.umap.gg(aotea_umap, labels_txt = FALSE, clusters = aotea_site$code)
-aotea_umap_nn30  <- plot.umap.gg(aotea_umap_nn30, labels_txt = FALSE, clusters = aotea_site$code)
-aotea_umap_md05 <- plot.umap.gg(aotea_umap_md05, labels_txt = FALSE, clusters = aotea_site$code)
+aotea_umap  <- plot.nonlin.gg(aotea_umap, labels_txt = FALSE, clusters = aotea_site$code)
+aotea_umap_nn30  <- plot.nonlin.gg(aotea_umap_nn30, labels_txt = FALSE, clusters = aotea_site$code)
+aotea_umap_md05 <- plot.nonlin.gg(aotea_umap_md05, labels_txt = FALSE, clusters = aotea_site$code)
 
 
 (aotea_umap + aotea_umap_nn30 + aotea_umap_md05) +
@@ -559,8 +552,9 @@ aotea_umap_md05 <- plot.umap.gg(aotea_umap_md05, labels_txt = FALSE, clusters = 
 Now, we can move onto some methods of constrained ordination. First, a look at the 'tikus' dataset (measures of coral reef communities over time) to compare an unconstrained and a constrained (by time) ordination (data available in the `mvabund` package in R). Here, a distance-based redundancy analysis (`vegan::dbrda`) with an nMDS is presented. We will log-transform the data. This example is presented in detail in ver Braak and Šmilauer (-@terbraakTopicsConstrainedUnconstrained2015). Note that for the `metaMDS` we have increased the number of runs (_try_) and iterations (_maxit_) to help ensure convergence on an optimal solution.
 ```{r tikusExample, echo = T, results = 'hide'}
 
-# load data
-data(tikus, package = 'mvabund')
+# load data - this as per the mvabund package
+# https://github.com/aliceyiwang/mvabund/blob/master/data/tikus.RData
+load("Data/tikus.RData")
 
 # log transform
 tikus_log <- log(tikus$abund + 1)
@@ -568,12 +562,12 @@ tikus_survey <- tikus$x$time
 
 # Unconstrained ordination of the Tikus coral reef data
 # nMDS - increased try and maxit for convergence
-tikus_nmds <- metaMDS(tikus_log, autotransform = TRUE,
+tikus_nmds <- metaMDS(tikus_log, autotransform = FALSE,
                       wascores = FALSE,
                       try = 100, maxit = 500, trace = 1)
 
 # plot
-tik.mds.gg <- ggplot(data = as.data.frame(scores(tikus_nmds))) +
+tik_mds_gg <- ggplot(data = as.data.frame(scores(tikus_nmds))) +
   geom_point(aes(NMDS1, NMDS2, col = as.factor(tikus$x$time)), size = 3) +
   scale_color_brewer(name = "Year", palette = "PuRd") +
   coord_equal() +
@@ -585,13 +579,13 @@ tikus_rd <- dbrda(tikus_log ~ tikus_survey, distance = "bray")
 tikus_rd_scores <- data.frame(scores(tikus_rd)$sites)
 
 #plot
-tik.rd.gg <- ggplot(data = tikus_rd_scores) + 
+tik_rd_gg <- ggplot(data = tikus_rd_scores) + 
   geom_point(aes(dbRDA1, dbRDA2, col = as.factor(tikus_survey)), size = 3) +
   scale_color_brewer(name = "Year", palette = "PuRd") +
   coord_equal() +
   theme_minimal()
 
-fig6 <- tik.mds.gg + tik.rd.gg + 
+fig6 <- (tik_mds_gg + tik_rd_gg) + 
     plot_annotation(tag_levels = "a") +
     plot_layout(guides = "collect", widths = c(1, 1)) &
     theme(legend.position = "bottom")
@@ -611,14 +605,14 @@ invert_rda <- rda(inverts_hel ~ ., data = chem_sub_hyp)
 # adjusted r2 (via the vegan package)
 invert_rda_r2 <- round(RsquareAdj(invert_rda)$adj.r.squared, 3) 
 
-# Plot using ggvegan (as an example)  
-rda.iv.gg <- autoplot(invert_rda, layers = c("biplot", "sites"), geom = "text") +
+# Plot using autoplot in ggvegan (as an example)  
+rda_iv_gg <- autoplot(invert_rda, layers = c("biplot", "sites"), geom = "text") +
   theme_minimal() + 
   theme(legend.position = "none")
 ```
 
 ```{r plotRDAInvert, echo = FALSE, fig.cap = "Constrained redundancy analysis (RDA) for freshwater invertebrate and physiochemical data.", fig.dim = c(8,4)}
-rda.iv.gg
+rda_iv_gg
 ```
 
 Now a canonical correspondence analysis (CCA) using the `vegan::cca` command. We'll build two models on log_10_ transformed abundance data, one saturated and one using a subset of environmental predictors.
@@ -628,24 +622,24 @@ invert_cca_all <- cca(inverts_l10, chem_sub)
 invert_cca_red <- cca(inverts_l10, chem_sub_hyp)
 ```
 
-Now we can plot the saturated and reduced model and compare them.
+We can plot the saturated and reduced model and compare them.
 
 ### plots need tidying
 ```{r plot-invertCCA, fig.cap = "canonical correspondence analysis of freshwater invertebrate and environemntal data using all (a) and a subset (b) of environemtnal predictors.", fig.dim = c(8, 6)}
 
 # Plot them - autoplot here is from ggvegan
-invert.cca.all.gg <- autoplot(invert_cca_all, layers = c("biplot","sites"),
+invert_cca_all_gg <- autoplot(invert_cca_all, layers = c("biplot","sites"),
                               geom = "text") + 
   theme_bw() + 
   theme(legend.position = "none")
 
-invert.cca.red.gg <- autoplot(invert_cca_red, layers = c("biplot","sites"),
+invert_cca_red_gg <- autoplot(invert_cca_red, layers = c("biplot","sites"),
                               geom = "text") + 
   theme_bw() + 
   theme_bw() +
   theme(legend.position = "none")
 
-(invert.cca.all.gg + invert.cca.red.gg) + 
+(invert_cca_all_gg + invert.cca.red.gg) + 
   plot_annotation(tag_levels = "a")
 ```
 
@@ -656,11 +650,11 @@ dbRDA is similar to RDA but is designed to support a broader range of dissimilar
 ```{r dbRDA, fig.cap = "dbRDA of freshwater invertebrate and enviromental data", fig.dim = c(6,6)}
 
 invert_dbrda <- capscale(inverts ~ ., chem_sub_hyp, dist="bray")
-dbrda.invert.gg <- autoplot(invert_dbrda, layers = c('sites', 'biplot')) +
+dbrda_invert_gg <- autoplot(invert_dbrda, layers = c('sites', 'biplot')) +
   theme_bw() + 
   theme(legend.position = 'none')
 
-dbrda.invert.gg
+dbrda_invert_gg
 ```
 
 
@@ -684,17 +678,17 @@ full_mod_dbrda_r2 <- round(RsquareAdj(full_mod_dbrda)$adj.r.squared, 3)
 sel_mod_dbrda_r2 <- round(RsquareAdj(sel_mod_dbrda)$adj.r.squared, 3)
 
 
-dbrda.full.gg <- autoplot(full_mod_dbrda, layers = c("sites", "biplot"), geom = "text") +
+dbrda_full_gg <- autoplot(full_mod_dbrda, layers = c("sites", "biplot"), geom = "text") +
   theme_minimal() + 
   theme(legend.position = 'none')
 
-dbrda.sel.gg <- autoplot(sel_mod_dbrda, layers = c("sites", "biplot"), geom = "text") +
+dbrda_sel_gg <- autoplot(sel_mod_dbrda, layers = c("sites", "biplot"), geom = "text") +
   theme_minimal() + 
   theme(legend.position = 'none')
 ```
 
 ```{r plotFullSel, fig.cap = paste("dbRDA including all hypothesised predictors, Adjusted R2 = ", full_mod_dbrda_r2, " (a)", "and a subset based on model selection, Adjusted R2 = ", sel_mod_dbrda_r2, " (b)", sep = "")}
-dbrda.full.gg + dbrda.sel.gg + 
+dbrda_full_gg + dbrda_sel_gg + 
   plot_layout(guides = "collect")
 ```
 
@@ -765,14 +759,14 @@ nsims_aotea <- 5  # need more for analysis but this is **slow**!
     mutate(site = gsub("_.*","", pcq_point)) %>%
     mutate(rep = if_else(is.na(rep), 1 , as.numeric(rep) + 1))
   
-resamp.iv.gg <- plot.resamp(b_iv_dfr) 
-resamp.aotea.gg <- plot.resamp(b_aotea_dfr, legend = TRUE)
+resamp_iv_gg <- plot.resamp(b_iv_dfr) 
+resamp_aotea_gg <- plot.resamp(b_aotea_dfr, legend = TRUE)
 
-resamp.iv.stress.gg <- ggplot(data = data.frame(s = b_iv$stresses)) +
+resamp_iv_stress_gg <- ggplot(data = data.frame(s = b_iv$stresses)) +
   geom_histogram(aes(s), bins = 20) + labs(x = 'Stress', y = 'Frequency') +
   theme_minimal()
 
-resamp.aotea.stress.gg <- ggplot(data = data.frame(s = b_aotea$stresses)) + 
+resamp_aotea_stress_gg <- ggplot(data = data.frame(s = b_aotea$stresses)) + 
   geom_histogram(aes(s), bins = 10) + 
   labs(x = 'Stress', y = 'Frequency') + 
   theme_minimal()
@@ -780,8 +774,8 @@ resamp.aotea.stress.gg <- ggplot(data = data.frame(s = b_aotea$stresses)) +
 
 
 ```{r plotResampling}
-(resamp.iv.gg + resamp.iv.stress.gg) / (resamp.aotea.gg + resamp.aotea.stress.gg) + 
-  plot_annotation(tag_level = 'a') +
+(resamp_iv_gg + resamp_iv_stress_gg) / (resamp_aotea_gg + resamp_aotea_stress_gg) + 
+  plot_annotation(tag_level = "a") +
   plot_layout(guides = "collect") & 
   theme(legend.position = 'bottom')
 ```
@@ -829,21 +823,21 @@ aotea_stat_dfr <- data.frame(stat = c(permustats(aotea_anosim)$statistic,
                                       permustats(aotea_adonis)$statistc),
                             test = c('ANOSIM', 'PERMANOVA'))
 
-aotea.sim.gg <- ggplot(aotea_perm_dfr) + 
+aotea_sim_gg <- ggplot(aotea_perm_dfr) + 
   geom_histogram(aes(x = perm)) +
-  geom_vline(data = aotea_stat_dfr, aes(xintercept = stat), col = 'red') +
-  facet_wrap(~test, scales = 'free_x') + 
+  geom_vline(data = aotea_stat_dfr, aes(xintercept = stat), col = "red") +
+  facet_wrap(~test, scales = "free_x") + 
   labs (x = 'Permutation statistics', y = 'Frequency') + 
   theme_minimal()
 
 
-aotea.sim.gg
+print(aotea_sim_gg)
 ```
 
 ```{r permuTablesOp}
 
-aotea.adonis.td <- tidy(aotea_adonis)
-disp.rc.plot <- plot(aotea_mod, main = "")
+aotea_adonis_td <- tidy(aotea_adonis)
+disp_rc_plot <- plot(aotea_mod, main = "")
 ```
 
 As discussed in the main text, ecological community data can have strong mean-variance relationships [@wartonModelbasedThinkingCommunity2015].  Model-based approaches to multivariate analysis are a direct response to this issue. One way to address this problem is a transformation of the data to down-weight abundant species (e.g. log-transform). Clarke et al [-@clarkeDispersionbasedWeightingSpecies2006] describe a method that individually weights species based on their departure from a Poisson (mnean = variance) distribution.
@@ -866,10 +860,10 @@ mv.raw.iv <- ggplot(iv_dfr) +
 
 invert_wgt_mds <- metaMDS(inverts_dispw, distance = 'bray', autotransform = FALSE, trace = 1)
 
-iv.mds_wgt.gg <- plot.mds.gg(invert_wgt_mds, txt.x = -0.9, txt.y = -0.8, labels = TRUE)
+iv_mds_wgt_gg <- plot.mds.gg(invert_wgt_mds, txt.x = -0.9, txt.y = -0.8, labels = TRUE)
 
-(mv.raw.iv)
-(iv.mds.gg + iv.mds_wgt.gg)
+(mv_raw_iv)
+(iv_mds_gg + iv_mds_wgt_gg)
 ```
 
 ## SIMPER and Indicator species
@@ -880,7 +874,8 @@ Finally, we might want to identify the species (or variable) that characterise s
 simper_veg <- simper(aotea_pa, group = aotea_site$code)
 # simper_veg
 ```
-The function provides much information that we need to sift through (not printed out here), but we can see which species contribute most to differences between groups. We need to use permutation to assess these differences more robustly.
+
+The function provides a large amount of information that we need to sift through (not printed out here), but we can see which species contribute most to differences between groups. We need to use permutation to assess these differences more robustly.
 
 ```{r simperPermAotea}
 
@@ -907,7 +902,7 @@ summary(aotea_indic, indvalcom = TRUE, alpha = 0.01) # summarise, showing A and 
 
 ```
 
-Again, this function yields a wealth of information.  We can see that of the 273 species in the data, c 140 are deemed to provide association information (85 to 1 group). We can also see two parameters _A_ and _B_. The first of these is the probability that a site belongs to some group given the presence of the species and _B_ the probability of finding the species given the site type. As the (vignette for indicspecies)[https://cran.r-project.org/web/packages/indicspecies/vignettes/indicspeciesTutorial.pdf] notes, there are potential problems here with the familywise error rate so some correction (or caution) may be required.
+Again, this function yields a wealth of information.  We can see that of the 273 species in the data, c. 140 are deemed to provide association information (85 to 1 group). We can also see two parameters _A_ and _B_. The first of these is the probability that a site belongs to some group given the presence of the species and _B_ the probability of finding the species given the site type. As the (vignette for indicspecies)[https://cran.r-project.org/web/packages/indicspecies/vignettes/indicspeciesTutorial.pdf] notes, there are potential problems here with the familywise error rate so some correction (or caution) may be required.
 
 If we want to hone in on indicator taxa for specific groups then we can use the `indicators` function. For example, we could identify indicators (here just pairs) for the community at the Awana ('AW') site (the earliest in the succession).  We can constrain so that _A_ and _B_ are above some threshold.
 
