@@ -285,3 +285,60 @@ plot.sppResponse.gg <- function(spp.rsp, focal_spp = seq_along(spp.rsp), display
   plot.obj <- patchwork::wrap_plots(plot.list)
   plot.obj
 }
+
+## ggplot TSNE objects produced by Rtsne
+plot.tsne.gg <- function(tsn, sites = 1:nrow(tsn$Y), labels_txt = TRUE, clusters = NULL)
+{
+  xy <- data.frame(site = sites, tsn$Y)
+  
+  if (is_null(clusters)) {
+  
+    plot_obj <- ggplot(xy) +
+      geom_point(aes(x = X1, y = X2 )) } else {
+  
+    plot_obj <- ggplot(xy) +
+      geom_point(aes(x = X1, y = X2, col = factor(clusters)))    
+      
+    }
+    
+  if (labels_txt) {
+    plot_obj <- plot_obj +
+      ggrepel::geom_text_repel(aes(x = X1, y = X2, label = site))
+    
+  }  
+  
+  plot_obj + 
+    labs( x = "Dimension 1", y = "Dimension 2") +
+    coord_equal() +
+    theme_bw() +
+    theme(legend.position = "bottom")
+}  
+
+## ggplot UMAP objects produced by umap
+## should refactor into plot.tsne.gg
+plot.umap.gg <- function(ump, sites = 1:nrow(ump$layout), labels_txt = TRUE, clusters = NULL)
+{
+  xy <- data.frame(site = sites, ump$layout)
+  
+  if (is_null(clusters)) {
+    
+    plot_obj <- ggplot(xy) +
+      geom_point(aes(x = X1, y = X2 )) } else {
+        
+        plot_obj <- ggplot(xy) +
+          geom_point(aes(x = X1, y = X2, col = factor(clusters)))    
+        
+      }
+  
+  if (labels_txt) {
+    plot_obj <- plot_obj +
+      ggrepel::geom_text_repel(aes(x = X1, y = X2, label = site))
+    
+  }  
+  
+  plot_obj + 
+    labs( x = "Dimension 1", y = "Dimension 2") +
+    coord_equal() +
+    theme_bw() +
+    theme(legend.position = "bottom")
+}  

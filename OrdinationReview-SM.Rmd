@@ -34,7 +34,7 @@ if (!require("pacman")) install.packages("pacman")
 
 # load packages + install any that are missing
 pacman::p_load(tidyverse, broom, knitr, janitor, ggfortify, patchwork,
-               mdthemes, vegan, analogue, ggvegan, mvabund, devtools)
+               mdthemes, vegan, analogue, ggvegan, mvabund, Rtsne, umap, devtools)
 ```
 
 ```{r loadLibraries_2, eval = FALSE}
@@ -199,7 +199,7 @@ fig2 <- invert.mean.gg + veg.mean.gg +
   plot_annotation(tag_levels = "a")
 ```
 
-```{r plotVis2, echo = FALSE, fig.dim = c(8, 4), fig.align = "center", fig.cap = "Mean-variance relationships for Lee et al. 2018 invertebrate (a) and Perry et al 2010 (b) vegetaion data."}
+```{r plotVis2, echo = FALSE, fig.dim = c(8, 4), fig.align = "center", fig.cap = "Mean-variance relationships for Lee et al. 2018 invertebrate (a) and Perry et al 2010 (b) vegetation data."}
 fig2
 ```
 
@@ -209,7 +209,7 @@ fig2
 ## Methods of multidimensional scaling
 
 ### Lee et al. invertebrate data
-Having visualised the data, we can look at some ways to explore it using multidimensional scaling as a means of dimensional reduction -- these methods are available in the `vegan` package, which is extremely well documented and support by a series of [vignettes](https://cran.r-project.org/web/packages/vegan/). Here we are using the methods in an exploratory way, to generate hypotheses.
+Having visualised the data, we can look at some ways to explore it using multidimensional scaling as a means of dimensional reduction -- these methods are available in the `vegan` package, which is extremely well documented and support by a series of [vignettes](https://cran.r-project.org/web/packages/vegan/). Here, we are using the methods in an exploratory way, to generate hypotheses.
 
 First, classical/metric MDS of the Lee et al. [-@leePreySelectivityOntogenetic2018] invertebrate data. In vegan we can do this either unweighted or weighted; below we do both with row sums as proportions of matrix sum as weights. Also, because we use a non-Euclidean distance metric there is a risk of negative eigenvalues, so we use the `add` argument. Using `eig = TRUE` returns the eigenvalues for us. Here, the weighted solution is strongly influence by a few sites with much higher abundance than others (e.g., F16 and F01).
 
@@ -444,9 +444,116 @@ focal_spp <- chooseTaxa(inverts_l10, n.occ = 17, value = FALSE)
 plot.sppResponse.gg(invert_responses, focal_spp = focal_spp)
 ```
 
-## tsne and UMAP
+## Non-linear mapping: tsne and UMAP
 
-TO DO
+
+We will demonstrate two methods of non-linear mapping: tSNE and UMAP.  As discussed in the main text these are different from the other methods we've discussed in the way they seek to balance local and global structure.  This also means that we need to be careful in interpreting the size of clusters and so forth.  For tSNE and UMAP we will use the `Rtsne` and `umap` packages, respectively.  
+
+### tsne
+
+For tSNE the key hyperparameter is _perplexity_, which controls the balance between local and global structure (by, in essence, determining each point's neighbourhood).  The Rtsne help recommends that $3 * perpexity < nrow - 1$ (the default is 30, but that is too high for the Lee et al. invertebrate data). 
+
+```{r ivtsne}
+# Try a couple of perplexity values, low theta for more accurate but slower
+invert_tsne_p3 <- Rtsne(inverts, perplexity = 3, theta = 0.0)
+invert_tsne_p6 <- Rtsne(inverts, perplexity = 6, theta = 0.0)
+
+# Can suppl a distance matrix if we wish non-Euclidean distances between sites
+invert_dist <- vegdist(inverts, method = "bray")
+invert_tsne_bc_p3 <- Rtsne(invert_dist, perplexity = 3, is_distance = TRUE)
+invert_tsne_bc_p6 <- Rtsne(invert_dist, perplexity = 6, is_distance = TRUE)
+
+```
+
+And plot them; clearly, and perhaps unsurprisingly, the choice of distance metric is very important.  Likewise, the perplexity value influences the way the sites are arranged, especially for the Bray-Curtis metric.
+
+
+```{r plotivTSNE, fig.cap = "tSNE for the Lee et al. data with different perplecities and using distance matrices."}
+tsne3.gg <- plot.tsne.gg(invert_tsne_p3, invert_sites)
+tsne6.gg <- plot.tsne.gg(invert_tsne_p6, invert_sites)
+tsned3.gg <- plot.tsne.gg(invert_tsne_bc_p3, invert_sites)
+tsned6.gg <- plot.tsne.gg(invert_tsne_bc_p6, invert_sites)
+
+tsne3.gg + tsne6.gg
+tsned3.gg + tsned6.gg
+# plot.tsne.gg <- function(tsn, sites = rownames(tsn), labels_txt = TRUE, clusters = NULL)
+```
+We can now apply the tSNE to the much larger Aotea vegetation data; again, assessing two different perplexities and with/without the Bray-Curtis measure.
+
+```{r aoteatsne}
+# Rtsne will not work if there are duplicated rows (i.e. identical sites)
+# so we need to remove them
+undup <- !duplicated(aotea_pa)
+aotea_pa_nodup <- aotea_pa[undup,]
+aotea_sites_nd <- aotea_site$code[undup]
+
+# Try a couple of perplexity values, low theta for more accurate but slower
+aotea_tsne_p25 <- Rtsne(aotea_pa_nodup, perplexity = 25, theta = 0.0)
+aotea_tsne_p50 <- Rtsne(aotea_pa_nodup, perplexity = 50, theta = 0.0)
+
+# Can suppl a distance matrix if we wish non-Euclidean distances between sites
+aotea_dist <- vegdist(aotea_pa_nodup, method = "bray")
+aotea_tsne_bc_p25 <- Rtsne(aotea_dist, perplexity = 25, theta = 0.0, is_distance = TRUE)
+aotea_tsne_bc_p50 <- Rtsne(aotea_dist, perplexity = 50, theta = 0.0, is_distance = TRUE)
+
+```
+
+And plot them. Here the differences between the two distance metrics are less clear.  The algorithm tends to cluster the geographic locations together and order them in a successional sequence (from 'AW' to 'Te') while showing also that they form a continuum based on their composition.
+
+```{r plotAoteaTSNE, fig.cap = "tSNE for the Perry et al. data with different perplexities and using distance matrices; colours represent geographic locations."}
+
+tsne_ao_p25.gg <- plot.tsne.gg(aotea_tsne_p25, labels_txt = FALSE, clusters = aotea_sites_nd)
+tsne_ao_p50.gg <- plot.tsne.gg(aotea_tsne_p50, labels_txt = FALSE, clusters = aotea_sites_nd)
+tsne_ao_d_p25.gg <- plot.tsne.gg(aotea_tsne_bc_p25, labels_txt = FALSE, clusters = aotea_sites_nd)
+tsne_ao_d_p50.gg <- plot.tsne.gg(aotea_tsne_bc_p50, labels_txt = FALSE, clusters = aotea_sites_nd)
+
+(tsne_ao_p25.gg + tsne_ao_p50.gg + tsne_ao_d_p25.gg + tsne_ao_d_p50.gg) +
+  plot_layout(ncol = 1, guides = "collect") &
+  theme(legend.position = "bottom")
+
+# plot.tsne.gg <- function(tsn, sites = rownames(tsn), labels_txt = TRUE, clusters = NULL)
+```
+
+### UMAP
+We can now look at the UMAP algorithm (just for the Aotea data for space). The implementation in the `umap` library uses a special object class for the many possible configuration options, so we can tune the hyper-parameters in detail (including some distance metrics, there is more control of this available in the Python implementation). 
+
+
+```{r umapAotea}
+set.seed(8736317)
+# check the default options
+umap.defaults
+
+# Run a umap using the default settings
+aotea_umap <- umap(aotea_pa)
+
+# What if we change the number of neighbours evaluated
+umap_hparam <- umap.defaults
+umap_hparam$n_neighbors <-  30
+
+aotea_umap_nn30 <- umap(aotea_pa, config = umap_hparam)
+
+# Or the minimum distance between points (the packing of similar locations)
+umap_hparam <- umap.defaults
+umap_hparam$n_neighbors <-  15
+umap_hparam$min_dist <- 0.05
+
+aotea_umap_md05 <- umap(aotea_pa, config = umap_hparam)
+
+
+```
+
+The final configuration is reasonably robust to the hyper-parameter values (location clustering is similar and the successional sequence evident).
+
+```{r plotUmapAotea, fig.cap = "UMAP for the Perry et al. data with different hyper-parameter values; colours represent geographic locations."}
+aotea_umap  <- plot.umap.gg(aotea_umap, labels_txt = FALSE, clusters = aotea_site$code)
+aotea_umap_nn30  <- plot.umap.gg(aotea_umap_nn30, labels_txt = FALSE, clusters = aotea_site$code)
+aotea_umap_md05 <- plot.umap.gg(aotea_umap_md05, labels_txt = FALSE, clusters = aotea_site$code)
+
+
+(aotea_umap + aotea_umap_nn30 + aotea_umap_md05) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
 
 # Constrained ordination
 Now, we can move onto some methods of constrained ordination. First, a look at the 'tikus' dataset (measures of coral reef communities over time) to compare an unconstrained and a constrained (by time) ordination (data available in the `mvabund` package in R). Here, a distance-based redundancy analysis (`vegan::dbrda`) with an nMDS is presented. We will log-transform the data. This example is presented in detail in ver Braak and Šmilauer (-@terbraakTopicsConstrainedUnconstrained2015). Note that for the `metaMDS` we have increased the number of runs (_try_) and iterations (_maxit_) to help ensure convergence on an optimal solution.
@@ -701,7 +808,7 @@ aotea_anosim <-anosim(aotea_dist, aotea_site$code, permutations = n_perm, parall
 aotea_adonis <- adonis2(aotea_dist ~ aotea_site$code, permutations = n_perm, parallel = n_cores)  
 
 # You can't do pairwise comparisons in adonis2 but the pairwiseAdonis pakcage allows this
-### TO DO
+aotea_pw_adonis <- pairwise.adonis2(aotea_dist ~ aotea_site$code, permutations = n_perm, parallel = n_cores)
 
 # Test for homogeneity of variance (scatter)
 aotea_mod <- betadisper(aotea_dist, aotea_site$code)
@@ -709,7 +816,7 @@ aotea_mod_perm <- permutest(aotea_mod, pairwise = TRUE, permutations = n_perm)
 aotea_mod_HSD <- TukeyHSD(aotea_mod)
 ```
 
-These two plots show the obsvered (red line) test statisyic and the distribution of the simulated values -- in both cases suggesting that there is a strong location effect of site (in this case due to successional differences).
+These two plots show the obserrved (red line) test statistic and the distribution of the simulated values -- in both cases suggesting that there is a strong location effect of site (in this case due to successional differences).
 
 ```{r testOutput}
 # permuted stats
