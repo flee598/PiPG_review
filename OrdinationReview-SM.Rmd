@@ -18,6 +18,14 @@ nocite: |
  @wangMvabundPackageModelbased2012
 ---
 
+## TO DO
+- Finn may be add 2-3 sentences with an overview of the Lee et al. study
+- Tidy graphs (not sure how much we need to worry here)
+- MEM?
+- Could use coenoflex for trajectory or JW's student?
+- Flense the .bib file
+- Pairwise adonis is a bit janky
+
 
 ```{r setup, include = FALSE} 
 knitr::opts_chunk$set(echo = TRUE)
@@ -25,7 +33,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Commented R code for analyses described in Brock et al. PiPG Progress reports
 
-This document shows how to perform the analyses described in Brock et al. largely using the data from Lee et al. [-@leePreySelectivityOntogenetic2018] and Perry et al. [-@perryVegetationPatternsTrajectories2010]. It is *not* a detailed description of the methods themselves (for that see references in the main document) but rather an example of how to conduct the sorts of analyses mentioned in the article.
+This document shows how to perform the analyses described in Brock et al. largely using the data from Lee et al. [-@leePreySelectivityOntogenetic2018] and Perry et al. [-@perryVegetationPatternsTrajectories2010]. It is *not* a detailed description of the methods themselves (for that see references in the main document) but rather an example of how to conduct the sorts of analyses mentioned in the article.  Knitting it from scratch may take some time - there are some analyses that may take _hours_ (but these are cached and so the knitting process will look for saved versions _before_ doing an analysis).
 
 First we'll load some packages necessary for the wrangling, visualisation, and analyses.
 ```{r loadLibraries, message=FALSE}
@@ -36,7 +44,8 @@ if (!require("pacman")) install.packages("pacman")
 # GP - I ma having linking issues in nix with mvabund...
 
 pacman::p_load(tidyverse, broom, knitr, janitor, ggfortify, patchwork,
-               mdthemes, vegan, analogue, ggvegan, Rtsne, umap, devtools)
+               mdthemes, vegan, analogue, ggvegan, Rtsne, umap, ecotraj,
+               coenoflex, indicspecies, devtools)
 ```
 
 ```{r loadLibraries_2, eval = FALSE}
@@ -425,7 +434,7 @@ plot.prcurve.gg(inverts_pc) +
 
 We can see that the curve captures 43% of the variance but (say compared to a PCA) at the cost of a much more complex model. It is also possible to look at individual taxa response along the gradient identified in the principle curve. The command in analogue is `sppResponse`. Here, we have plotted the subset of taxa occurring at at least 17 (60%) of survey sites. Visually, we can see some taxa sorting along the gradient identified in the PC; some taxa respond curvilinearly (e.g., Chironomidae) but others show a threshold-type effect (e.g., Amphipods).
 
-```{r speciesPCResponses, fig.cap = "Principal response curve taxa rersponses for the freshwater invertebrate dataset."}
+```{r speciesPCResponses, fig.cap = "Principal response curve taxa responses for the freshwater invertebrate dataset."}
 # taxa responses
 invert_responses <- sppResponse(inverts_pc)
 
@@ -538,12 +547,12 @@ aotea_umap_md05 <- umap(aotea_pa, config = umap_hparam)
 The final configuration is reasonably robust to the hyper-parameter values (location clustering is similar and the successional sequence evident).
 
 ```{r plotUmapAotea, fig.cap = "UMAP for the Perry et al. data with different hyper-parameter values; colours represent geographic locations."}
-aotea_umap  <- plot.nonlin.gg(aotea_umap, labels_txt = FALSE, clusters = aotea_site$code)
-aotea_umap_nn30  <- plot.nonlin.gg(aotea_umap_nn30, labels_txt = FALSE, clusters = aotea_site$code)
-aotea_umap_md05 <- plot.nonlin.gg(aotea_umap_md05, labels_txt = FALSE, clusters = aotea_site$code)
+aotea_umap_gg  <- plot.nonlin.gg(aotea_umap, labels = FALSE, clusters = aotea_site$code)
+aotea_umap_nn30_gg  <- plot.nonlin.gg(aotea_umap_nn30, labels = FALSE, clusters = aotea_site$code)
+aotea_umap_md05_gg <- plot.nonlin.gg(aotea_umap_md05, labels = FALSE, clusters = aotea_site$code)
 
 
-(aotea_umap + aotea_umap_nn30 + aotea_umap_md05) +
+(aotea_umap_gg + aotea_umap_nn30_gg + aotea_umap_md05_gg) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 ```
@@ -639,7 +648,7 @@ invert_cca_red_gg <- autoplot(invert_cca_red, layers = c("biplot","sites"),
   theme_bw() +
   theme(legend.position = "none")
 
-(invert_cca_all_gg + invert.cca.red.gg) + 
+(invert_cca_all_gg + invert_cca_red_gg) + 
   plot_annotation(tag_levels = "a")
 ```
 
@@ -781,7 +790,59 @@ resamp_aotea_stress_gg <- ggplot(data = data.frame(s = b_aotea$stresses)) +
 ```
 
 ## Trajectory analysis
-Neither the invertebrate nor vegetation data we have used are suitable for trajectory analysis.  To conduct trajectory analysis in R you can use the ecotraj library - it is support by an excellent [vignette](https://cran.r-project.org/web/packages/ecotraj/vignettes/IntroductionETA.html) and some sample data.
+Neither the invertebrate nor vegetation data we have used are suitable for trajectory analysis. Thus, we will use some simple simulated data (via the coenoflex library) to illustrate its use.  To conduct trajectory analysis in R you can use the ecotraj library - it is support by an excellent [vignette](https://cran.r-project.org/web/packages/ecotraj/vignettes/IntroductionETA.html) and some sample data.
+
+```{r simCommunity}
+set.seed (5963277)
+
+# make the community - see the coenoflex help for full details
+# the veg element of this is the site-species matrix
+
+traj_comm <- coenoflex(numgrd = 1,
+          numplt = 20,
+          numsp = 80,
+          grdtyp = "e",
+          grdlen = 100,
+          width = 30,
+          variab = 50,
+          grdprd = 0,
+          alphad = 0.7,
+          pdist = "G",
+          sdist = "r",
+          skew = 3.0,
+          aacorr = 0,
+          cmpasy = 1.5,
+          maxtot = 100,
+          noise = 35,
+          slack = 0.3,
+          autlin = "irm(1)")
+
+
+sim_grad_gg <- plot.coeno.gg(traj_comm)$grad_plot
+sim_rich_gg <- plot.coeno.rich.gg(traj_comm)$rich_plot
+
+sim_grad_gg + sim_rich_gg
+```
+
+We now have one simulated community so we can look at its trajectory through ordination space (here an nMDS).
+
+
+```{r mdsTRaj}
+
+# Description of sites and surveys
+sites <- rep(1, 20)
+surveys <- 1:20
+  
+# Locations in ordination space for the data
+traj_mds <- metaMDS(traj_comm$veg, distance = "bray", autotransform = FALSE)
+traj_xy <- scores(traj_mds)
+
+# Plot the trajectory
+plot.mds.gg(traj_mds, labels = TRUE, txt.x = -2.5, txt.y = 1)
+trajectoryPlot(traj_xy, sites, surveys, lwd = 2)
+```
+
+## multiple sites??
 
 ## Tests of location and dispersion
 
@@ -801,8 +862,11 @@ aotea_anosim <-anosim(aotea_dist, aotea_site$code, permutations = n_perm, parall
 # PERMANOVA on 'site'
 aotea_adonis <- adonis2(aotea_dist ~ aotea_site$code, permutations = n_perm, parallel = n_cores)  
 
-# You can't do pairwise comparisons in adonis2 but the pairwiseAdonis pakcage allows this
-aotea_pw_adonis <- pairwise.adonis2(aotea_dist ~ aotea_site$code, permutations = n_perm, parallel = n_cores)
+# You can't do pairwise comparisons in adonis2 but the pairwiseAdonis package allows this
+aotea_pa_pw <- aotea_pa
+aotea_pa_pw$site <- aotea_site$code
+
+aotea_pw_adonis <- pairwise.adonis2(aotea_pa[,-274] ~ site, data = aotea_pa_pw, permutations = n_perm, parallel = n_cores)
 
 # Test for homogeneity of variance (scatter)
 aotea_mod <- betadisper(aotea_dist, aotea_site$code)
@@ -810,7 +874,7 @@ aotea_mod_perm <- permutest(aotea_mod, pairwise = TRUE, permutations = n_perm)
 aotea_mod_HSD <- TukeyHSD(aotea_mod)
 ```
 
-These two plots show the obserrved (red line) test statistic and the distribution of the simulated values -- in both cases suggesting that there is a strong location effect of site (in this case due to successional differences).
+The plots below show the observed (red line) test statistic and the distribution of the simulated values -- in both cases suggesting that there is a strong location effect of site (in this case due to successional differences). We can drill into this further by looking at the `aotea_pw_adonis` object.
 
 ```{r testOutput}
 # permuted stats
@@ -850,7 +914,7 @@ iv_mean <- apply(inverts, 2, mean)
 iv_sig <- as.factor(ifelse(attr(inverts_dispw, "p") < 0.01, 1, 2))
 iv_dfr <- data.frame(m = iv_mean, v = iv_var, s = iv_sig)
 
-mv.raw.iv <- ggplot(iv_dfr) + 
+mv_raw_iv <- ggplot(iv_dfr) + 
   geom_point(aes(x = m , y = v, size = m /v, col = s)) + 
   geom_abline(slope = 1, intercept = 0) + 
   scale_x_log10() + 
@@ -895,9 +959,8 @@ if (file.exists("rds/aotea_simper_perm.rds")) {
 A different, and potentially more robust, approach is to use the indicator analysis descrined by de Caceres and colleagues [-@decaceresImprovingIndicatorSpecies2010;-@decaceresAssociationsSpeciesGroups2009].  This method seeks to identify 'faithful' species - in other words, those species that if present enable you to confidently determine the vegetation type (or types).  The `indicspecies` package implements this approach, building on the work of Dufrêne and Legendre [-@dufreneSpeciesAssemblagesIndicator1997].
 
 ```{r indicSppAotea}
-library(indicspecies)
 n_perm <- 99
-aotea_indic <- multipatt(aotea_pa, aotea_site$code, control = how(nperm = n_perm))
+aotea_indic <- multipatt(aotea_pa, cluster = aotea_site$code, control = how(nperm = n_perm))
 summary(aotea_indic, indvalcom = TRUE, alpha = 0.01) # summarise, showing A and B for species with p <= .01
 
 ```
@@ -913,13 +976,14 @@ summary(awana_indicators)
 print(awana_indicators)
 ```
 
-We can estimate confidence limits for these values as well
+We can estimate confidence limits for these statistics.
 
 ```{r indicatorAwana}
 n_boot <- 19
 awana_indicators_boot <- indicators(aotea_pa, cluster = aotea_site$code, group = "AW", At = 0.7, Bt = 0.3, max.order = 2, nboot.ci = n_boot, verbose = FALSE) # set verbose FALSE to turn off the output
 
 summary(awana_indicators_boot)
-print(awana_indicators_boot$A) # check out the A values
+print(awana_indicators_boot$A) # inspect the A values
 ```
+
 # References

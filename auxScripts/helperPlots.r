@@ -321,4 +321,73 @@ plot.nonlin.gg <- function(obj, site_labels = NULL, labels = FALSE, clusters = N
     theme(legend.position = "bottom")
 }  
 
+
+plot.coeno.gg <- function(x, f_grd = 1)
+{
   
+  i <- f_grd
+  
+  n_spp <- x$params$numspc
+  grad_len <- x$params$grdlen[i]
+  
+  spp_curves <- matrix(nrow = grad_len + 1, ncol = n_spp)
+  
+  for (j in 1:n_spp) {
+    val <- x$spcamp[j, i, ]
+    spp_curves[,j] <- spp_amp_curve(val, grad_len, x$maxabu[j])
+  }
+  
+  spp_curves_lg <- data.frame(spp_curves) %>%
+    pivot_longer(cols = everything(), names_to = "species", values_to = "abund") %>%
+    group_by(species) %>%
+    mutate(grad_pos = 1:101) %>%
+    arrange(species, grad_pos)
+  
+  plot.obj <- ggplot() +
+    xlim(0, x$params$grdlen[i]) +
+    ylim(0, max(x$maxabu)) +
+    labs(x = "Gradient", y = "Abundance")
+  
+  
+  plot.obj <- plot.obj +
+    geom_line(data = spp_curves_lg, aes(x = grad_pos, y = abund, 
+                                        col = species), show.legend = FALSE) +
+    theme_bw()
+  
+  list(grad_plot = plot.obj, spp_curves = spp_curves_lg)
+}
+
+plot.coeno.rich.gg <- function(x)
+{
+  s <- rowSums(x$veg > 0)
+  s_grad <- data.frame(grad_pos = x$site, s = s)
+  rich_plot <- ggplot(s_grad, aes(x = grad_pos, y = s)) +
+    geom_point(size = 3) +
+    geom_smooth(method = "gam") +
+    labs(x = "Gradient", y = "Richness") +
+    theme_bw()
+  
+  list(s_grad = s_grad, rich_plot = rich_plot)
+}
+
+# Modified from the coenoflex::plot.coenoflex function
+spp_amp_curve <- function(val, grad_len, max_abund)
+{
+  curve <- rep(0, grad_len + 1)
+  
+  for (k in 0:grad_len) {
+    if (k < val[1])  curve[k + 1] <- 0
+    else if (val[1] < k & k <= val[2]) 
+      curve[k + 1] <- 2 * ((k - val[1])/(val[3] - val[1]))^2
+    else if (val[2] < k & k <= val[3]) 
+      curve[k + 1] <- 1 - 2 * ((val[3] - k)/(val[3] - val[1]))^2
+    else if (val[3] < k & k <= val[4]) 
+      curve[k + 1] <- 1 - 2 * ((k - val[3])/(val[5] - val[3]))^2
+    else if (val[4] <- k & k <= val[5]) 
+      curve[k + 1] <- 2 * ((val[5] - k)/(val[5] - val[3]))^2
+    else curve[k + 1] <- 0
+  }
+  
+  curve <- curve * max_abund
+  curve        
+}     
