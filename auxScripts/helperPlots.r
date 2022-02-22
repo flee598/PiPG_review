@@ -56,7 +56,7 @@ plot.mds.gg <- function(mds, txt.col = 'blue', txt.x = 0, txt.y = 0, clusters = 
 }  
 
 
-plot.mds.bubble.gg <- function(mds, weights, rescale = 1, clusters = NULL, labels = FALSE,...)
+plot.mds.bubble.gg <- function(mds, weights, rescale = 1, clusters = NULL, labels = FALSE, lbl = "size", ...)
 # xy is the point location (e.g. the $points from MDS), weights the bubble size (e.g. from site-species mtx)
 # rescale is the size of the bubbles (reduce if they're too big)
 {
@@ -75,7 +75,9 @@ plot.mds.bubble.gg <- function(mds, weights, rescale = 1, clusters = NULL, label
       geom_point(data = xy_abs, aes(x = NMDS1, y = NMDS2), col = "grey", alpha = 0.4) + 
       geom_point(data = xy_pres, aes(x = NMDS1, y = NMDS2, size = plot_wgt), col = "black", pch = 1) + 
       # annotate(geom = 'text', x = txt.x, y = txt.y, label = stress.lbl, col = txt.col) +
-      labs(x = 'NDMS 1', y = 'NMDS 2') +
+      labs(x = 'NDMS 1',
+           y = 'NMDS 2',
+           size = lbl) +
       theme_minimal() +
       coord_equal() + 
       theme(legend.position = "none")
@@ -103,7 +105,7 @@ plot.mds.bubble.gg <- function(mds, weights, rescale = 1, clusters = NULL, label
   plot.obj
 }
 
-plot.envfit.gg <- function(mds, en, p.max = 0.05, txt.col = 'blue', txt.x = 0, txt.y = 0, clusters = NULL)
+plot.envfit.gg <- function(mds, en, p.max = 0.05, txt.col = 'blue', txt.x = 0, txt.y = 0, clusters = NULL, lbl = "group")
 {
   require(ggplot2)
   
@@ -126,9 +128,11 @@ plot.envfit.gg <- function(mds, en, p.max = 0.05, txt.col = 'blue', txt.x = 0, t
     xy$cl <- as.factor(clusters)
     
     plot.obj <- ggplot(data = xy) + 
-      geom_point(aes(x = NMDS1, y = NMDS2, col = cl), alpha  = 0.5) + 
+      geom_point(aes(x = NMDS1, y = NMDS2, colour = cl), alpha  = 0.5) + 
       # annotate(geom = 'text', x = txt.x, y = txt.y, label = stress.lbl, col = txt.col) +
-      labs(x = 'NDMS 1', y = 'NMDS 2') +
+      labs(x = 'NDMS 1',
+           y = 'NMDS 2',
+           colour = lbl) +
       theme_minimal() +
       coord_equal() 
   }
@@ -304,7 +308,7 @@ plot.nonlin.gg <- function(obj, site_labels = NULL, labels = FALSE, clusters = N
       geom_point(aes(x = X1, y = X2 )) } else {
   
     plot_obj <- ggplot(xy) +
-      geom_point(aes(x = X1, y = X2, col = factor(clusters)))    
+      geom_point(aes(x = X1, y = X2, colour = factor(clusters)))    
       
     }
     
@@ -315,7 +319,7 @@ plot.nonlin.gg <- function(obj, site_labels = NULL, labels = FALSE, clusters = N
   }  
   
   plot_obj + 
-    labs( x = "Dimension 1", y = "Dimension 2") +
+    labs( x = "Dimension 1", y = "Dimension 2", colour = "Site") +
     coord_equal() +
     theme_bw() +
     theme(legend.position = "bottom")
@@ -390,4 +394,49 @@ spp_amp_curve <- function(val, grad_len, max_abund)
   
   curve <- curve * max_abund
   curve        
-}     
+}
+
+
+# Ordisurf ggplot
+plot.ordsurf.gg <- function(mds, plot_surf, lbl = "surface", knts = 5, comb = FALSE) {
+  
+  # extract data
+  # points
+  plot_pnts <- ordiplot(mds)
+  plot_pnts_lng <- BiodiversityR::sites.long(plot_pnts)
+  
+  # surface 
+  plot_surf_lng <- BiodiversityR::ordisurfgrid.long(plot_surf)
+  
+  # plot
+  if(comb) {
+    plot_surf_gg <- ggplot() + 
+      geom_point(data = plot_pnts_lng, aes(x = axis1, y = axis2)) +
+      geom_contour(data = plot_surf_lng, aes(x = x, y = y, z = z, colour = ..level..)) +
+      scale_color_viridis_c(limits = range(c(0, 900))) +
+      labs(x = "NMDS1",
+           y = "NMDS2",
+           colour = lbl,
+           title = paste(lbl, ", k = ", knts, sep = "")) +
+      coord_fixed() +
+      theme_bw() +
+      theme(plot.title = element_text(hjust = 0.5))
+  } else {
+    plot_surf_gg <- ggplot() + 
+      geom_point(data = plot_pnts_lng, aes(x = axis1, y = axis2)) +
+      geom_contour(data = plot_surf_lng, aes(x = x, y = y, z = z, colour = ..level..)) +
+      scale_color_viridis_c() +
+      labs(x = "NMDS1",
+           y = "NMDS2",
+           colour = lbl,
+           title = paste(lbl, ", k = ", knts, sep = "")) +
+      coord_fixed() +
+      theme_bw() +
+      theme(plot.title = element_text(hjust = 0.5))
+    
+    
+  }
+  return(plot_surf_gg)
+}
+
+

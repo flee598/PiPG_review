@@ -1,7 +1,6 @@
 Questions/comments:
  - It seems like you need to use different formatting depending on whether you plan on outputting to html or pdf, I have assumed we are outputting to pdf.
  - Note - the taxa in the invert dataset are classified to various taxaonomic levels.
- - Remove non-useful data from physiochem dataset (e.g. mci)?
  - Ordination of vege data, in the description it states this is PA data, then there is an ordination with point size scaled by tawa abundace?
 
 

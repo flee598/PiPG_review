@@ -40,7 +40,7 @@ table(str_sub(rownames(aotea_tidy), 1,3))
 # Check no empty species (columns)
 aotea_tidy <- aotea_tidy[, colSums(aotea_tidy) > 0]
 
-write.csv(aotea_tidy, "aotea_allyears_tidy.csv")  
+write.csv(aotea_tidy, "perry_2010_aotea.csv")  
 # aotea_pa <- decostand(aotea_chk, "pa")
 
 #xy_mds <- metaMDS(aotea_pa, distance = "bray", autotransform = FALSE, wascores = FALSE)
