@@ -1,6 +1,6 @@
 ---
-title: "xx"
-author: "yy"
+title: "SM for Brock et al. Progress in Physical Geography"
+author: "James M.R. Brock, Finnbar Lee, John Wainwright, George L.W. Perry"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   pdf_document: default
@@ -9,24 +9,23 @@ output:
 header-includes:
  \usepackage{float}
  \floatplacement{figure}{H}
-bibliography: MVA_Geography.bib
+bibliography: references.bib
 csl: global-ecology-and-biogeography.csl
 editor_options:
   markdown:
     wrap: 72
 nocite: |
- @wangMvabundPackageModelbased2012
+  @wangMvabundPackageModelbased2012
 ---
 
 ## TO DO
--   L 271-272 doesn't make sense? "below we do both with row sums as
-proportions of matrix sum as weights"
--   Figure 10, 11 - sometimes the plots dimensions are horrible (other times they are fine), might be to do with coord_equal() and stocastic nature of Rtsne? 
--   Add caption to figure 19
+ - It seems like you need to use different code depending on whether you plan on outputting to html or pdf, I have assumed we are outputting to pdf.
+ - Ordination of veg data, in the description it states this is PA data, then there is an ordination with point size scaled by tawa abundance?
+-   L 271-272 doesn't make sense? "below we do both with row sums as proportions of matrix sum as weights"
+-   Add captions to some of the last figures fig 20+
 -   Do we need any interpretation of resampled nMDS figures at all?
 -   MEM?
 -   Could use coenoflex for trajectory or JW's student?
--   Flense the .bib file
 -   Pairwise adonis is a bit janky
 
 ```{r setup, include = FALSE}
@@ -34,7 +33,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 Commented R code for analyses described in Brock et al. PiPG Progress
-reports
+reports. To knit this Rmarkdown file to pdf we have used `R 4.1.2`, RStudio, the `knitr` package and other associated packages. 
 
 This document shows how to perform the analyses described in Brock et
 al. largely using the data from Lee et al.
@@ -50,7 +49,7 @@ doing an analysis).
 First we'll load some packages necessary for the wrangling,
 visualisation, and analyses.
 
-```{r loadLibraries, message=FALSE}
+```{r loadLibraries, message = FALSE, results = "hide", warning = "hide"}
 # load pacman package + install if missing - used to load/install
 # multiple packages at once
 if (!require("pacman")) install.packages("pacman")
@@ -69,7 +68,7 @@ pacman::p_load(
   ggfortify, patchwork, mdthemes)
 ```
 
-```{r loadLibraries_2, eval = FALSE}
+```{r loadLibraries_2, message = FALSE, results = "hide", warning = "hide"}
 # install packages from GitHub (not available on CRAN) -
 # this will check, and only install if required
 devtools::install_github("phytomosaic/ecole")       
@@ -79,7 +78,7 @@ devtools::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
 devtools::install_github("gavinsimpson/ggvegan")
 ```
 
-```{r loadFunctions}
+```{r loadFunctions, message = FALSE, results = "hide", warning = "hide"}
 # load newly installed packages from GitHub
 pacman::p_load(
   # multivariate analysis packages
@@ -421,10 +420,6 @@ water temperature are the most important environmental vectors (p \<
 0.05), and the PCA scores components 2, 5 and 6 are important (but only
 DIN p \< 0.05).
 
-## plots need tidying
-### legend - cl/colour = true/false native vegertation > 0.2
-### plot_wgt = physa abundance??
-
 ```{r plotnMDSLee, echo = FALSE, fig.cap = "nMDS of invertebrate data (a), with point size scale by Physa (genus of snails) abundance (b), and physiocemical data fit as environmental vectors (c), and with environmetal vectors fit using PCA axes generated using all physiochemical variables (d).", fig.dim = c(8, 8)}
 fig4
 ```
@@ -475,7 +470,7 @@ homogeneous, and the abundance information is high-quality. This example
 may have some issues with finding a convergent solution - check the
 `vegan` help for details.
 
-```{r mdsAotea, echo = FALSE, message = FALSE}
+```{r mdsAotea, echo = FALSE, message = FALSE, results = 'hide'}
 # nMDS of the Aotea veg data (presence-absence)
 aotea_dist <- vegdist(aotea_pa)
 
@@ -616,8 +611,9 @@ tsne6_gg <- plot.nonlin.gg(invert_tsne_p6, site_labels = invert_sites, labels = 
 tsned3_gg <- plot.nonlin.gg(invert_tsne_bc_p3, site_labels = invert_sites, labels = TRUE)
 tsned6_gg <- plot.nonlin.gg(invert_tsne_bc_p6, site_labels = invert_sites, labels = TRUE)
 
-fig10 <- (tsne3_gg + tsne6_gg) / (tsned3_gg + tsned6_gg) + 
-  plot_annotation(tag_levels = "a")
+fig10 <- (tsne3_gg + tsne6_gg + tsned3_gg + tsned6_gg) + 
+  plot_annotation(tag_levels = "a") +
+   plot_layout(ncol = 2, nrow = 2, widths = c(1,1), heights = c(1,1)) # force even layout
 ```
 
 ```{r fig.cap = "tSNE for the Lee et al. data with perplecity = 3 and a Euclidean distance matrix (a), perplecity = 6 and a Euclidean distance matrix (b), perplecity = 3 and a Bray-Curtis distance matrix (c) and, perplecity = 6 and a Bray-Curtis distance matrix (a)", echo = FALSE, fig.dim = c(8, 8), warning = FALSE}
@@ -660,7 +656,7 @@ tsne_ao_d_p25_gg <- plot.nonlin.gg(aotea_tsne_bc_p25, clusters = aotea_sites_nd)
 tsne_ao_d_p50_gg <- plot.nonlin.gg(aotea_tsne_bc_p50, clusters = aotea_sites_nd)
 
 fig11 <- (tsne_ao_p25_gg + tsne_ao_p50_gg + tsne_ao_d_p25_gg + tsne_ao_d_p50_gg) +
-  plot_layout(guides = "collect") &
+  plot_layout(guides = "collect", ncol = 2, nrow = 2, widths = c(1,1), heights = c(1,1)) &
   theme(legend.position = "bottom")
 
 ```
@@ -718,7 +714,7 @@ fig12 <- (aotea_umap_gg + aotea_umap_nn30_gg + aotea_umap_md05_gg) +
   theme(legend.position = "bottom")
 ```
 
-```{r fig.cap = "UMAP for the Perry et al. data with different hyper-parameter values (see code block above)", fig.dim = c(8, 4)}
+```{r fig.cap = "UMAP for the Perry et al. data with different hyper-parameter values (see code block above).", fig.dim = c(8, 4), echo = FALSE}
 fig12
 ```
 
@@ -776,7 +772,7 @@ fig13 <- (tik_mds_gg + tik_rd_gg) +
     theme(legend.position = "bottom")
 ```
 
-```{r plotTikusExample, echo = FALSE, fig.cap = "", fig.dim = c(8, 8), fig.cap = "Uncontrained ordination of coral reef communities (a), and constrained (by time) ordination (b)"}
+```{r plotTikusExample, echo = FALSE, fig.cap = "", fig.dim = c(8, 8), fig.cap = "Uncontrained ordination of coral reef communities (a), and constrained (by time) ordination (b)."}
 fig13
 ```
 
@@ -870,7 +866,7 @@ fig16 <- autoplot(invert_dbrda, layers = c('sites', 'biplot')) +
   theme(legend.position = 'none')
 ```
 
-```{r fig.cap = "dbRDA of freshwater invertebrate and enviromental data", fig.dim = c(6,6), echo = FALSE}
+```{r fig.cap = "dbRDA of freshwater invertebrate and enviromental data.", fig.dim = c(6,6), echo = FALSE}
 fig16
 ```
 
@@ -920,7 +916,7 @@ fig17 <- dbrda_full_gg + dbrda_sel_gg +
 
 ```
 
-```{r plotFullSel, fig.cap = paste("dbRDA including all hypothesised predictors, Adjusted R2 = ", full_mod_dbrda_r2, " (a) ", "and a subset based on model selection, Adjusted R^2^ = ", sel_mod_dbrda_r2, " (b)", sep = ""), echo = FALSE}
+```{r plotFullSel, fig.cap = paste("dbRDA including all hypothesised predictors, Adjusted R^2^ = ", full_mod_dbrda_r2, " (a) ", "and a subset based on model selection, Adjusted R^2^ = ", sel_mod_dbrda_r2, " (b).", sep = ""), echo = FALSE}
 fig17
 ```
 
@@ -1066,17 +1062,18 @@ traj_comm <- coenoflex(numgrd = 1,
 sim_grad_gg <- plot.coeno.gg(traj_comm)$grad_plot
 sim_rich_gg <- plot.coeno.rich.gg(traj_comm)$rich_plot
 
-fig19 <- sim_grad_gg + sim_rich_gg
+fig19 <- sim_grad_gg + sim_rich_gg +
+    plot_annotation(tag_level = "a")
 ```
 
-```{r echo = FALSE, fig.cap = "ADD FIGURE CAPTION", fig.dim = c(8, 4), warning = FALSE, message = FALSE}
+```{r echo = FALSE, fig.cap = "Simulated community response to environmental gradiet (a), species richness along the simulated gradient (b).", fig.dim = c(8, 4), warning = FALSE, message = FALSE}
 fig19
 ```
 
 We now have one simulated community so we can look at its trajectory
 through ordination space (here with an nMDS).
 
-```{r mdsTRaj, message = FALSE, warning = FALSE, fig.cap = "ADD CAPTION", fig.dim = c(8, 4)}
+```{r mdsTRaj, message = FALSE, warning = FALSE, fig.dim = c(8, 4), results = 'hide', fig.cap = "Trajectory of a simulated community through ordination space."}
 
 # Description of sites and surveys
 sites <- rep(1, 20)
@@ -1090,11 +1087,11 @@ traj_xy <- scores(traj_mds)
 plot.mds.gg(traj_mds, labels = TRUE, txt.x = -2.5, txt.y = 1)
 ```
 
-```{r, fig.cap = "ADD CAPTION", fig.dim = c(8, 4)}
+```{r, fig.cap = "Trajectory of a simulated community through ordination space.", fig.dim = c(8, 4)}
 trajectoryPlot(traj_xy, sites, surveys, lwd = 2)
 ```
 
-## multiple sites??
+## Multiple sites?
 
 ## Tests of location and dispersion
 
@@ -1156,16 +1153,17 @@ there is a strong location effect of site (in this case due to
 successional differences). We can drill into this further by looking at
 the `aotea_pw_adonis` object.
 
-```{r testOutput}
+```{r testOutput, warning = FALSE, message = FALSE}
 # permuted stats
-aotea_perm_dfr <- data.frame(perm = c(permustats(aotea_anosim)$permutations, 
-                                permustats(aotea_adonis)$permutations),
-                                test = rep(c('ANOSIM', 'PERMANOVA'), each = 499))
+aotea_perm_dfr <- data.frame(perm = c(permustats(aotea_anosim)$permutations,
+                                      permustats(aotea_adonis)$permutations),
+                             test = rep(c('ANOSIM', 'PERMANOVA'),
+                                        each = 499))
 
 # observed stat (for comparison)
 aotea_stat_dfr <- data.frame(stat = c(permustats(aotea_anosim)$statistic, 
                                       permustats(aotea_adonis)$statistc),
-                            test = c('ANOSIM', 'PERMANOVA'))
+                             test = c('ANOSIM', 'PERMANOVA'))
 
 fig22 <- ggplot(aotea_perm_dfr) + 
   geom_histogram(aes(x = perm)) +
@@ -1193,26 +1191,29 @@ this issue. One way to address this problem is a transformation of the
 data to down-weight abundant species (e.g. log-transform). Clarke et al
 [-@clarkeDispersionbasedWeightingSpecies2006] describe a method that
 individually weights species based on their departure from a Poisson
-(mnean = variance) distribution.
+(mean = variance) distribution.
 
-```{r invertDownWeight, message = FALSE, warning = FALSE}
+```{r invertDownWeight, message = FALSE, warning = FALSE, results = 'hide'}
 # calculate invertebrate mean and variance abundance
 
+# vegan::dispweight implements the method
+inverts_dispw <- dispweight(inverts)
 
-inverts_dispw <- dispweight(inverts) # vegan::dispweight implements the method
-# calc 
+# calculate mean and variance
 iv_var <- apply(inverts, 2, var) 
 iv_mean <- apply(inverts, 2, mean)
-iv_sig <- as.factor(ifelse(attr(inverts_dispw, "p") < 0.01, 1, 2))
-iv_dfr <- data.frame(m = iv_mean, v = iv_var, s = iv_sig)
+iv_sig <- as.factor(ifelse(attr(inverts_dispw, "p") < 0.01, TRUE, FALSE))
+iv_dfr <- data.frame(m = iv_mean, v = iv_var, signif = iv_sig)
 
 # plot
 fig24 <- ggplot(iv_dfr) + 
-  geom_point(aes(x = m , y = v, size = m /v, col = s)) + 
+  geom_point(aes(x = m , y = v, size = m / v, colour = signif)) + 
   geom_abline(slope = 1, intercept = 0) + 
   scale_x_log10() + 
   scale_y_log10() + 
-  labs(x = "Mean abundance", y = "Var. abundance") +
+  labs(x = "Mean abundance",
+       y = "Var. abundance",
+       colour = "Depart from\nPoisson") +
   theme_bw()
 
 # nMDS
@@ -1224,15 +1225,16 @@ iv_mds_wgt_gg <- plot.mds.gg(invert_wgt_mds,
                              txt.y = -0.8,
                              labels = TRUE)
 
-fig25 <- (iv_mds_gg + iv_mds_wgt_gg)
+fig25 <- (iv_mds_gg + iv_mds_wgt_gg) +
+    plot_annotation(tag_level = "a")
 ```
 
 
-```{r echo = FALSE, fig.cap = "ADD CAPTION", fig.dim = c(5,4)}
+```{r echo = FALSE, fig.cap = "Mean - variance relationship for Lee et al. invertebrate abundance data.", fig.dim = c(5,4)}
 fig24
 ```
 
-```{r echo = FALSE, fig.cap = "ADD CAPTION", fig.dim = c(8,4)}
+```{r echo = FALSE, fig.cap = "Unweighted ordination of Lee et al. invertebrate data (a). Abundance weighted ordination of Lee et al. invertebrate data.", fig.dim = c(8,4)}
 fig25
 ```
 
