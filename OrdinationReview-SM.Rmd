@@ -1039,6 +1039,7 @@ set.seed (5963277)
 
 # make the community - see the coenoflex help for full details
 # the veg element of this is the site-species matrix
+# GP has coded various helpers for ggplot2
 traj_comm <- coenoflex(numgrd = 1,
           numplt = 20,
           numsp = 80,
