@@ -18,16 +18,6 @@ nocite: |
   @wangMvabundPackageModelbased2012
 ---
 
-## TO DO
- - It seems like you need to use different code depending on whether you plan on outputting to html or pdf, I have assumed we are outputting to pdf.
- - Ordination of veg data, in the description it states this is PA data, then there is an ordination with point size scaled by tawa abundance?
--   L 271-272 doesn't make sense? "below we do both with row sums as proportions of matrix sum as weights"
--   Add captions to some of the last figures fig 20+
--   Do we need any interpretation of resampled nMDS figures at all?
--   MEM?
--   Could use coenoflex for trajectory or JW's student?
--   Pairwise adonis is a bit janky
-
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -165,8 +155,7 @@ rm(dfr)
 # Visualisation of the multivariate data
 
 Now, some basic visualisation to highlight the nature of multivariate
-(ecological) data using the Lee et al. 2018 data. This is **Figure X**
-in the main document.
+(ecological) data using the Lee et al. 2018 data. 
 
 ```{r visualiseMVA}
 # First, lengthen the data to make it easier for ggplot
@@ -213,7 +202,7 @@ fig1 <- sites_hist_iv_gg + heat_iv_gg + dot_wang_iv_gg +
 plot_annotation(tag_levels = "a")
 ```
 
-```{r plotVis, echo = FALSE, fig.dim = c(8, 4), fig.align = "center", fig.cap = "Histogram of number of sites each taxa occurs at (a). Heat map of abundance for taxa x site, grey = not present, white = low abundances and red = high abundnces (b). Dotplot of taxa abundances, replicating that in Wang *et al* 2012 (c). All figures use the Lee et al. 2018 invertebrate data"}
+```{r plotVis, echo = FALSE, fig.dim = c(8, 4), fig.align = "center", fig.cap = "Histogram of number of sites each taxa occurs at (a). Heat map of abundance for taxa x site, grey = not present, white = low abundances and red = high abundnces (b). Dotplot of taxa abundances, replicating that in Wang et al 2012 (c). All figures use the Lee et al. 2018 invertebrate data"}
 fig1
 ```
 
@@ -442,9 +431,9 @@ pca_surf_k10 <- ordisurf(x = invert_mds, y = chem_pca_scores[,1], knots = 10, pl
 
 # plot surfaces using ggplot
 plot_din_k5 <- plot.ordsurf.gg(invert_mds, din_surf_k5, lbl = "DIN", knts = 5, comb = T)
-plot_pca_k5 <- plot.ordsurf.gg(invert_mds, pca_surf_k5, lbl = "PCA comp", knts = 5)
+plot_pca_k5 <- plot.ordsurf.gg(invert_mds, pca_surf_k5, lbl = "PCA comp 1", knts = 5)
 plot_din_k10 <- plot.ordsurf.gg(invert_mds, din_surf_k10, lbl = "DIN", knts = 10, comb = T)
-plot_pca_k10 <- plot.ordsurf.gg(invert_mds, pca_surf_k10, lbl = "PCA comp", knts = 10)
+plot_pca_k10 <- plot.ordsurf.gg(invert_mds, pca_surf_k10, lbl = "PCA comp 1", knts = 10)
 
 fig5 <- (plot_din_k5 + plot_pca_k5) / (plot_din_k10 + plot_pca_k10) +
     plot_annotation(tag_levels = "a") + 
@@ -942,6 +931,12 @@ term_aov # look for significant terms
 axis_aov # and axes
 ```
 
+## Dealing with spatial autocorrelation
+
+
+# to add once we are happy withthe toy script
+
+
 
 # Recent advances
 
@@ -1018,7 +1013,7 @@ fig18 <- (resamp_iv_gg + resamp_iv_stress_gg) / (resamp_aotea_gg + resamp_aotea_
   theme(legend.position = 'bottom')
 ```
 
-## Do we need any interpretation of the figures here??
+
 ```{r fig.cap = "Bootsrapped nMDS of the Lee et al. invertebrate data (a), and the distribution of associated stress scores (b). Bootsrapped nMDS of the Perry et al. vegetation data (c), and the distribution of associated stress scores (d).", fig.dim = c(6,6), echo = FALSE}
 fig18
 ```
@@ -1107,8 +1102,8 @@ whether there have been shifts in community structure under different
 management regimes, for example; the second, is relevant where there may
 not be a change but a site is winnowed out to a subset of some other
 reference community (e.g. under invasion). Most of these methods are
-permutation-based (meaning we can use parallelisation to speed thigns
-uo) and operate on the dissimilarity matrix rather than an ordination.
+permutation-based (meaning we can use parallelisation to speed things
+up) and operate on the dissimilarity matrix rather than an ordination.
 We'll use the Aotea data to demonstrate these methods as we have groups
 (geographic locations).
 
@@ -1174,12 +1169,12 @@ fig22 <- ggplot(aotea_perm_dfr) +
   theme_minimal()
 ```
 
-```{r fig.cap = "ADD CAPTION", fig.dim = c(8, 4), echo = FALSE, message = FALSE}
+```{r fig.cap = "Observed (red line) ANOSIM and PERMANOVA test statistic and the distribution of the simulated values – in both cases suggesting that there is a strong location effect of site", fig.dim = c(8, 4), echo = FALSE, message = FALSE}
 fig22
 ```
 
 
-```{r permuTablesOp, fig.cap = "ADD CAPTION", fig.dim = c(6,6), warning = FALSE, message = FALSE}
+```{r permuTablesOp, fig.cap = "Ordination illustrating the dispersion of species across sites.", fig.dim = c(6,6), warning = FALSE, message = FALSE}
 aotea_adonis_td <- tidy(aotea_adonis)
 
 plot(aotea_mod, main = "")
