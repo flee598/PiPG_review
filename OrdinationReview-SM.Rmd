@@ -54,6 +54,7 @@ pacman::p_load(
   tidyverse, broom, knitr, janitor,
   # multivariate analysis packages
   vegan, analogue, Rtsne, umap, ecotraj, coenoflex, indicspecies, BiodiversityR,
+  adespatial, ade4, spdep,
   # plotting packages
   ggfortify, patchwork, mdthemes)
 ```
@@ -933,9 +934,52 @@ axis_aov # and axes
 
 ## Dealing with spatial autocorrelation
 
+In tests of species-environment relationships, spatial autocorrelation is
+known to inflate the level of type I error and make the tests of significance
+invalid [@PeresMEM]. To account for this, we can first test for spatial autocorrelation,
+(using Moran's eigenvector maps). We will do this using the Lee et al data.
 
-# to add once we are happy withthe toy script
+As an alternative to computing univariate statistics to check for spatial
+autocorrelation, we can summarise data by multivariate methods and then detect
+spatial structures using the output of the analysis [@PeresMEM]. For example, using
+centred principal component analysis on the invertebrate abundance data:
 
+Note we have used the default settings for all of the functions below. See the `adespatial` [vignette](https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html) for more details for parameter settings for the functions.
+
+```{r mems}
+# site coordinates
+xy_coords <- as.matrix(locations)
+
+# invertebrate data
+invert_mtx <- as.matrix(inverts)
+
+# Generating weighted graph of site coordinates 
+coord_graph <- graph2nb(gabrielneigh(xy_coords), sym = TRUE)
+
+# get distances between points
+coord_dist <- nbdists(coord_graph, xy_coords)
+dists_1 <- lapply(coord_dist, function(x) 1 - x/max(dist(xy_coords)))
+
+# add spatial (distances) to neighbours list
+coord_graph_dist <- nb2listw(coord_graph, glist = dists_1)
+
+# centred principal component analysis on the abundance data
+pca_inv <- dudi.pca(invert_mtx, scale = FALSE, scannf = FALSE, nf = 2)
+
+# global test for autocorrelation and forward selection of MEMs
+mem_inv <- mem.select(pca_inv$tab, listw = coord_graph_dist)
+
+# global test result 
+mem_inv$global.test
+
+# selected MEMs summary
+mem_inv$summary
+
+# selected MEMS
+mem_inv$MEM.select
+```
+
+The subset of selected MEMs above can then be used in subsequent analysis e.g. Redundancy analysis.
 
 
 # Recent advances
