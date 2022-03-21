@@ -45,7 +45,6 @@ visualisation, and analyses.
 if (!require("pacman")) install.packages("pacman")
 
 # load packages + install any that are missing
-# GP - I am having linking issues in nix with mvabund...
 
 pacman::p_load(
   # package management
@@ -58,6 +57,7 @@ pacman::p_load(
   # plotting packages
   ggfortify, patchwork, mdthemes)
 ```
+
 
 ```{r loadLibraries_2, message = FALSE, results = "hide", warning = "hide"}
 # install packages from GitHub (not available on CRAN) -
