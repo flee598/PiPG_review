@@ -139,7 +139,7 @@ from geographic locations across Aotea using a plotless method of vegetation
 survey. The geographic locations span a successional sequence from
 post-fire recovery to mature secondary forest.
 
-```{r loadAoteaData, warning = FALSE}
+```{r loadAoteaData, warning = FALSE}@tag:usesOnlineServices
 # Load the Aotea veg data
 # vegan uses row names, but the tidyverse doesn't!
 aotea <- read.csv(file = "./data/perry_2010_aotea.csv", row.names = 1)
@@ -405,7 +405,7 @@ suggesting the sites lie along an environmental gradient (rather than
 discrete environmental conditions). PCA shows that there is a dominant
 axis relating to land-use (proportion forest, etc.) and a second axis
 relating to stream conditions (e.g. width and flow velocity) and water
-quality. The vectors suggest that Dissolved organic nitrogen (DIN) and
+quality. The vectors suggest that dissolved organic nitrogen (DIN) and
 water temperature are the most important environmental vectors (p \<
 0.05), and the PCA scores components 2, 5 and 6 are important (but only
 DIN p \< 0.05).
@@ -414,14 +414,15 @@ DIN p \< 0.05).
 fig4
 ```
 
-One issue with fitting vectors is that they may not depict non-linear
-relationships adequately (although they have the benefit of allowing
-multiple variables to be seen). An option is to fit a surface (e.g. via
+One issue with fitting vectors is that they can not depict non-linear
+relationships adequately, although they have the benefit of allowing
+multiple variables to be seen. An option is to fit a surface (e.g. via
 a spline or general additive model [GAM]) instead. Here, we fit DIN and
 the first component of the PCA to the invertebrate nMDS. As with any
 surface fitting exercise it is important to evaluate the effects of
 different parametrisations (e.g., the knots used in the GAM) via the
 underlying diagnostics.
+
 
 ```{r message = FALSE, warning = FALSE, fig.show='hide'}
 # Ordisurf using DIN and PCA components and knots = 5 or 10
@@ -448,7 +449,7 @@ fig5
 
 ### Perry et al. vegetation data
 
-Now we'll do an nMDS of the Aotea vegetation data. Unlike the Lee et al.
+Now we'll look at an nMDS of the Aotea vegetation data. Unlike the Lee et al.
 invertebrate data, this information is presence-absence only, and covers
 many more sites and species (`r nrow(aotea)` x `r ncol(aotea)`).
 Although it may seem obvious that presence-absence is less informative
@@ -935,7 +936,7 @@ axis_aov # and axes
 ## Dealing with spatial autocorrelation
 
 In tests of species-environment relationships, spatial autocorrelation is
-known to inflate the level of type I error and make the tests of significance
+known to inflate the type-I error rate and make the tests of significance
 invalid [@PeresMEM]. To account for this, we can first test for spatial autocorrelation,
 (using Moran's eigenvector maps). We will do this using the Lee et al data.
 
@@ -1023,7 +1024,7 @@ nsims_aotea <- 5  # need more for analysis but this is **slow**!
 
 # tidy data
 b_iv_dfr <- data.frame(b_iv$points) %>% 
-    rownames_to_column(var = 'site') %>% 
+    rownames_to_column(var = "site") %>% 
     arrange(site) %>% 
     separate(site, into = c('site', 'rep'), sep = "\\.") %>% 
     mutate(rep = as.numeric(rep)) %>% 
@@ -1031,7 +1032,7 @@ b_iv_dfr <- data.frame(b_iv$points) %>%
 
 ############################# TO DO - this might need checking #################
 b_aotea_dfr <- data.frame(b_aotea$points) %>% 
-    rownames_to_column(var = 'pcq.site') %>% 
+    rownames_to_column(var = "pcq.site") %>% 
     arrange(pcq.site) %>% 
     separate(pcq.site, into = c('pcq_point', 'rep'), sep = "\\.") %>%
     mutate(site = gsub("_.*","", pcq_point)) %>%
