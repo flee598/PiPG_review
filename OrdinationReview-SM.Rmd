@@ -22,11 +22,15 @@ nocite: |
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Commented R code for analyses described in Brock et al. PiPG Progress
-reports. To knit this Rmarkdown file to pdf we have used `R 4.1.2`, RStudio, the `knitr` package and other associated packages. 
+Commented R code for analyses described in Brock et al. *Methods of classification and ordination in biogeography I - distance-based (algorithm-based) methods* in PiPG.Below is information on the operating system, version of R and package versions we used during the creation of this document.
+
+```{r}
+sessionInfo()
+```
+
 
 This document shows how to perform the analyses described in Brock et
-al. largely using the data from Lee et al.
+al. largely using data from Lee et al.
 [-@leePreySelectivityOntogenetic2018] and Perry et al.
 [-@perryVegetationPatternsTrajectories2010]. It is *not* a detailed
 description of the methods themselves (for that see references in the
@@ -406,7 +410,7 @@ suggesting the sites lie along an environmental gradient (rather than
 discrete environmental conditions). PCA shows that there is a dominant
 axis relating to land-use (proportion forest, etc.) and a second axis
 relating to stream conditions (e.g. width and flow velocity) and water
-quality. The vectors suggest that dissolved organic nitrogen (DIN) and
+quality. The vectors suggest that dissolved inorganic nitrogen (DIN) and
 water temperature are the most important environmental vectors (p \<
 0.05), and the PCA scores components 2, 5 and 6 are important (but only
 DIN p \< 0.05).
@@ -444,7 +448,7 @@ fig5 <- (plot_din_k5 + plot_pca_k5) / (plot_din_k10 + plot_pca_k10) +
     theme(legend.position = 'bottom')
 ```
 
-```{r invertSurface, fig.cap = "Dissolved organic nitrogen (DIN) fit as a surface to the nMDS with different paramertisations of *k* (a, c). PCA component 1 fit as a surface to the nMDS with different paramertisations of *k* (b, d).", fig.dim = c(8, 8), message = FALSE, warning = FALSE, echo = FALSE}
+```{r invertSurface, fig.cap = "Dissolved inorganic nitrogen (DIN) fit as a surface to the nMDS with different paramertisations of *k* (a, c). PCA component 1 fit as a surface to the nMDS with different paramertisations of *k* (b, d).", fig.dim = c(8, 8), message = FALSE, warning = FALSE, echo = FALSE}
 fig5
 ```
 
