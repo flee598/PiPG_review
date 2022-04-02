@@ -139,7 +139,7 @@ from geographic locations across Aotea using a plotless method of vegetation
 survey. The geographic locations span a successional sequence from
 post-fire recovery to mature secondary forest.
 
-```{r loadAoteaData, warning = FALSE}@tag:usesOnlineServices
+```{r loadAoteaData, warning = FALSE}
 # Load the Aotea veg data
 # vegan uses row names, but the tidyverse doesn't!
 aotea <- read.csv(file = "./data/perry_2010_aotea.csv", row.names = 1)
@@ -180,6 +180,7 @@ heat_iv_gg <- ggplot(inverts_long, aes(x = site, y = taxa_num)) +
   geom_raster(aes(fill = log10(abund)), show.legend = FALSE) +
   scale_fill_gradient(low="grey99", high="red") +
   labs(x = "Site", y = "Taxa") +
+  ylim(0,77) +
   theme_minimal() + 
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
@@ -831,7 +832,7 @@ fig15 <- invert_cca_all_gg + invert_cca_red_gg +
   plot_annotation(tag_levels = "a")
 ```
 
-```{r fig.cap = "canonical correspondence analysis of freshwater invertebrate and environemntal data using all (a) and a subset (b) of environemtnal predictors.", fig.dim = c(8, 6), echo = FALSE}
+```{r fig.cap = "canonical correspondence analysis of freshwater invertebrate and environemntal data using all (a) and a subset (b) of environmental predictors.", fig.dim = c(8, 6), echo = FALSE}
 fig15
 ```
 
