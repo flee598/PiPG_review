@@ -1127,7 +1127,7 @@ surveys <- 1:20
   
 # Locations in ordination space for the data
 traj_mds <- metaMDS(traj_comm$veg, distance = "bray", autotransform = FALSE)
-traj_xy <- scores(traj_mds)
+traj_xy <- scores(traj_mds)$sites
 
 # Plot the trajectory
 plot.mds.gg(traj_mds, labels = TRUE, txt.x = -2.5, txt.y = 1)

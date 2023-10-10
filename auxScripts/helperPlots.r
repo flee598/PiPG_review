@@ -19,16 +19,19 @@ plot.mds.gg <- function(mds, txt.col = 'blue', txt.x = 0, txt.y = 0, clusters = 
 {
   require(tidyverse)
   
-  xy <- data.frame(scores(mds)[,axes]) %>%
+  xy <- data.frame(mds$points[,axes]) %>%
     rownames_to_column(var = 'site')
+  
   n <- dim(scores(mds))[1]
+  
+  
   
   stress.lbl <- paste('Stress = ', round(mds$stress,3))
   
   if(is.null(clusters))
   {  
     plot.obj <- ggplot(data = xy) + 
-      geom_point(aes(x = NMDS1, y = NMDS2), alpha  = 0.3) + 
+      geom_point(aes(x = MDS1, y = MDS2), alpha  = 0.3) + 
       annotate(geom = 'text', x = txt.x, y = txt.y, label = stress.lbl, col = txt.col) +
       labs(x = 'NDMS 1', y = 'NMDS 2') +
       theme_minimal() +
@@ -39,7 +42,7 @@ plot.mds.gg <- function(mds, txt.col = 'blue', txt.x = 0, txt.y = 0, clusters = 
     xy$cl <- clusters
     
     plot.obj <- ggplot(data = xy) + 
-      geom_point(aes(x = NMDS1, y = NMDS2, col = cl), alpha = 0.5) + 
+      geom_point(aes(x = MDS1, y = MDS2, col = cl), alpha = 0.5) + 
       annotate(geom = 'text', x = txt.x, y = txt.y, label = stress.lbl, col = txt.col) +
       labs(x = 'NDMS 1', y = 'NMDS 2') +
       theme_minimal() +
@@ -49,7 +52,7 @@ plot.mds.gg <- function(mds, txt.col = 'blue', txt.x = 0, txt.y = 0, clusters = 
   if (labels == TRUE)
   {
     plot.obj <- plot.obj + 
-      ggrepel::geom_text_repel(aes(x = NMDS1, y = NMDS2, label = site), min.segment.length = msl)
+      ggrepel::geom_text_repel(aes(x = MDS1, y = MDS2, label = site), min.segment.length = msl)
   }
     
   plot.obj
@@ -294,7 +297,7 @@ plot.sppResponse.gg <- function(spp.rsp, focal_spp = seq_along(spp.rsp), display
 plot.nonlin.gg <- function(obj, site_labels = NULL, labels = FALSE, clusters = NULL)
 {
   
-  if (class(obj) == "umap") { 
+  if (class(obj)[1] == "umap") { 
     if(is.null(site_labels)) {site_labels <- 1:nrow(obj$layout)}
     xy <- data.frame(site = site_labels, obj$layout)
     } else 
@@ -402,8 +405,14 @@ plot.ordsurf.gg <- function(mds, plot_surf, lbl = "surface", knts = 5, comb = FA
   
   # extract data
   # points
-  plot_pnts <- ordiplot(mds)
-  plot_pnts_lng <- BiodiversityR::sites.long(plot_pnts)
+  
+  # plot_pnts <- vegan::ordiplot(mds) # GIVING ERROR
+  # plot_pnts_lng <- BiodiversityR::sites.long(plot_pnts)
+  
+  # ERROR FIX
+  plot_pnts <-  as.data.frame(invert_mds$points)
+  colnames(plot_pnts) <- c("axis1", "axis2")
+  plot_pnts_lng <- plot_pnts
   
   # surface 
   plot_surf_lng <- BiodiversityR::ordisurfgrid.long(plot_surf)
@@ -412,7 +421,7 @@ plot.ordsurf.gg <- function(mds, plot_surf, lbl = "surface", knts = 5, comb = FA
   if(comb) {
     plot_surf_gg <- ggplot() + 
       geom_point(data = plot_pnts_lng, aes(x = axis1, y = axis2)) +
-      geom_contour(data = plot_surf_lng, aes(x = x, y = y, z = z, colour = ..level..)) +
+      geom_contour(data = plot_surf_lng, aes(x = x, y = y, z = z, colour = after_stat(level))) +
       scale_color_viridis_c(limits = range(c(0, 900))) +
       labs(x = "NMDS1",
            y = "NMDS2",
@@ -424,7 +433,7 @@ plot.ordsurf.gg <- function(mds, plot_surf, lbl = "surface", knts = 5, comb = FA
   } else {
     plot_surf_gg <- ggplot() + 
       geom_point(data = plot_pnts_lng, aes(x = axis1, y = axis2)) +
-      geom_contour(data = plot_surf_lng, aes(x = x, y = y, z = z, colour = ..level..)) +
+      geom_contour(data = plot_surf_lng, aes(x = x, y = y, z = z, colour = after_stat(level))) +
       scale_color_viridis_c() +
       labs(x = "NMDS1",
            y = "NMDS2",
